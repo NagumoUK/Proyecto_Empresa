@@ -1,12 +1,8 @@
 import { Head, Link, useForm } from '@inertiajs/react';
 import { useConnectionStatus, useEcho } from '@laravel/echo-react';
 import {
-    ArrowUpRight,
     BriefcaseBusiness,
     CheckCircle2,
-    ChevronRight,
-    CircleDollarSign,
-    MoreHorizontal,
     Plus,
     Radio,
     Users,
@@ -28,76 +24,35 @@ type ActivityBroadcast = {
 
 type DashboardProps = {
     activities: ActivityItem[];
+    metrics: {
+        clients: number;
+        activeProjects: number;
+        planningProjects: number;
+        completedProjects: number;
+    };
+    projectStatuses: Record<string, number>;
+    projects: {
+        id: number;
+        name: string;
+        client: string;
+        status: string;
+        endDate: string | null;
+    }[];
 };
 
-const metrics = [
-    {
-        label: 'Ingresos del mes',
-        value: '$24,680',
-        change: '+12.8%',
-        detail: 'vs. mes anterior',
-        icon: CircleDollarSign,
-        tone: 'bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300',
-    },
-    {
-        label: 'Clientes activos',
-        value: '148',
-        change: '+8.2%',
-        detail: 'este mes',
-        icon: Users,
-        tone: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300',
-    },
-    {
-        label: 'Proyectos en curso',
-        value: '26',
-        change: '+4.5%',
-        detail: 'vs. mes anterior',
-        icon: BriefcaseBusiness,
-        tone: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300',
-    },
-    {
-        label: 'Tareas pendientes',
-        value: '37',
-        change: '-6.4%',
-        detail: 'esta semana',
-        icon: CheckCircle2,
-        tone: 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300',
-    },
-];
-
-const projects = [
-    {
-        name: 'Web corporativa',
-        client: 'Grupo Andina',
-        progress: 78,
-        status: 'En curso',
-        tone: 'bg-sky-500',
-    },
-    {
-        name: 'App móvil',
-        client: 'Logística Norte',
-        progress: 54,
-        status: 'En revisión',
-        tone: 'bg-amber-500',
-    },
-    {
-        name: 'Portal de clientes',
-        client: 'Inversiones Delta',
-        progress: 32,
-        status: 'Planificación',
-        tone: 'bg-violet-500',
-    },
-    {
-        name: 'Automatización interna',
-        client: 'Operaciones Sur',
-        progress: 91,
-        status: 'En curso',
-        tone: 'bg-emerald-500',
-    },
-];
+const projectStatusLabels: Record<string, string> = {
+    planning: 'Planificación',
+    active: 'En curso',
+    on_hold: 'En pausa',
+    completed: 'Completado',
+    cancelled: 'Cancelado',
+};
 
 export default function Dashboard({
     activities: initialActivities,
+    metrics,
+    projectStatuses,
+    projects,
 }: DashboardProps) {
     const [activities, setActivities] = useState(initialActivities);
     const form = useForm({ description: '' });
@@ -127,6 +82,54 @@ export default function Dashboard({
             onSuccess: () => form.reset(),
         });
     }
+
+    const metricCards = [
+        {
+            label: 'Clientes registrados',
+            value: metrics.clients,
+            icon: Users,
+            tone: 'bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300',
+            detail: 'En el directorio',
+        },
+        {
+            label: 'Proyectos en curso',
+            value: metrics.activeProjects,
+            icon: BriefcaseBusiness,
+            tone: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300',
+            detail: 'Con estado activo',
+        },
+        {
+            label: 'En planificación',
+            value: metrics.planningProjects,
+            icon: CheckCircle2,
+            tone: 'bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300',
+            detail: 'Por iniciar',
+        },
+        {
+            label: 'Completados',
+            value: metrics.completedProjects,
+            icon: CheckCircle2,
+            tone: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300',
+            detail: 'Finalizados',
+        },
+    ];
+    const statusItems = Object.entries(projectStatusLabels).map(
+        ([status, label]) => ({
+            label,
+            count: projectStatuses[status] ?? 0,
+            tone: {
+                planning: 'bg-violet-500',
+                active: 'bg-sky-500',
+                on_hold: 'bg-amber-500',
+                completed: 'bg-emerald-500',
+                cancelled: 'bg-slate-400',
+            }[status],
+        }),
+    );
+    const totalProjects = statusItems.reduce(
+        (total, item) => total + item.count,
+        0,
+    );
 
     return (
         <>
@@ -184,7 +187,7 @@ export default function Dashboard({
                     </div>
 
                     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                        {metrics.map((metric) => {
+                        {metricCards.map((metric) => {
                             const Icon = metric.icon;
 
                             return (
@@ -208,14 +211,9 @@ export default function Dashboard({
                                                 <Icon className="size-5" />
                                             </span>
                                         </div>
-                                        <div className="mt-4 flex items-center gap-2 text-xs">
-                                            <span className="font-semibold text-emerald-600 dark:text-emerald-400">
-                                                {metric.change}
-                                            </span>
-                                            <span className="text-slate-500 dark:text-slate-400">
-                                                {metric.detail}
-                                            </span>
-                                        </div>
+                                        <p className="mt-4 text-xs text-slate-500 dark:text-slate-400">
+                                            {metric.detail}
+                                        </p>
                                     </CardContent>
                                 </Card>
                             );
@@ -224,83 +222,44 @@ export default function Dashboard({
 
                     <div className="grid gap-6 xl:grid-cols-[1.45fr_1fr]">
                         <Card className="border-slate-200/80 py-0 shadow-sm dark:border-slate-800">
-                            <CardHeader className="flex-row items-center justify-between border-b border-slate-100 px-5 py-5 dark:border-slate-800">
+                            <CardHeader className="border-b border-slate-100 px-5 py-5 dark:border-slate-800">
                                 <div>
                                     <CardTitle className="text-base">
-                                        Rendimiento mensual
+                                        Estado de proyectos
                                     </CardTitle>
                                     <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                                        Ingresos y objetivos de los últimos 6
-                                        meses
+                                        {totalProjects} proyectos en el
+                                        portafolio
                                     </p>
                                 </div>
-                                <button
-                                    type="button"
-                                    aria-label="Más opciones"
-                                    className="rounded-md p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
-                                >
-                                    <MoreHorizontal className="size-5" />
-                                </button>
                             </CardHeader>
-                            <CardContent className="px-5 py-6">
-                                <div className="flex items-end justify-between gap-3 border-b border-slate-200 pb-4 dark:border-slate-700">
-                                    <div>
-                                        <p className="text-3xl font-semibold text-slate-950 dark:text-white">
-                                            $24,680
-                                        </p>
-                                        <p className="mt-1 flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
-                                            <ArrowUpRight className="size-3.5" />{' '}
-                                            12.8% vs. periodo anterior
-                                        </p>
-                                    </div>
-                                    <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400">
-                                        <span className="flex items-center gap-1.5">
-                                            <i className="size-2 rounded-full bg-sky-500" />{' '}
-                                            Ingresos
-                                        </span>
-                                        <span className="flex items-center gap-1.5">
-                                            <i className="size-2 rounded-full bg-slate-300 dark:bg-slate-600" />{' '}
-                                            Objetivo
-                                        </span>
-                                    </div>
-                                </div>
-                                <div className="mt-6 flex h-48 items-end gap-3 sm:gap-6">
-                                    {[58, 72, 64, 86, 76, 96].map(
-                                        (height, index) => (
+                            <CardContent className="space-y-5 px-5 py-6">
+                                {statusItems.map((item) => (
+                                    <div key={item.label}>
+                                        <div className="mb-2 flex items-center justify-between text-sm">
+                                            <span className="text-slate-600 dark:text-slate-300">
+                                                {item.label}
+                                            </span>
+                                            <span className="font-medium text-slate-900 dark:text-white">
+                                                {item.count}
+                                            </span>
+                                        </div>
+                                        <div className="h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
                                             <div
-                                                key={height}
-                                                className="flex h-full flex-1 flex-col items-center justify-end gap-2"
-                                            >
-                                                <div className="flex h-full w-full items-end gap-1.5">
-                                                    <div
-                                                        className="w-1/2 rounded-t-sm bg-sky-500 transition hover:bg-sky-400"
-                                                        style={{
-                                                            height: `${height}%`,
-                                                        }}
-                                                    />
-                                                    <div
-                                                        className="w-1/2 rounded-t-sm bg-slate-200 dark:bg-slate-700"
-                                                        style={{
-                                                            height: `${Math.min(height + 12, 100)}%`,
-                                                        }}
-                                                    />
-                                                </div>
-                                                <span className="text-xs text-slate-400">
-                                                    {
-                                                        [
-                                                            'Abr',
-                                                            'May',
-                                                            'Jun',
-                                                            'Jul',
-                                                            'Ago',
-                                                            'Sep',
-                                                        ][index]
-                                                    }
-                                                </span>
-                                            </div>
-                                        ),
-                                    )}
-                                </div>
+                                                className={`h-full rounded-full ${item.tone}`}
+                                                style={{
+                                                    width: `${totalProjects ? (item.count / totalProjects) * 100 : 0}%`,
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
+                                ))}
+                                {totalProjects === 0 && (
+                                    <p className="text-sm text-slate-500 dark:text-slate-400">
+                                        Registra proyectos para ver su
+                                        distribución.
+                                    </p>
+                                )}
                             </CardContent>
                         </Card>
 
@@ -375,14 +334,14 @@ export default function Dashboard({
                                     Proyectos destacados
                                 </CardTitle>
                                 <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                                    Seguimiento de los proyectos activos
+                                    Información actual registrada en el sistema
                                 </p>
                             </div>
                             <Link
-                                href="#"
+                                href="/management/proyectos"
                                 className="inline-flex items-center gap-1 text-sm font-medium text-sky-600 hover:text-sky-700 dark:text-sky-400 dark:hover:text-sky-300"
                             >
-                                Ver todos <ChevronRight className="size-4" />
+                                Ver todos
                             </Link>
                         </CardHeader>
                         <CardContent className="overflow-x-auto px-0 py-0">
@@ -396,57 +355,59 @@ export default function Dashboard({
                                             Cliente
                                         </th>
                                         <th className="px-5 py-3 font-medium">
-                                            Progreso
+                                            Entrega
                                         </th>
                                         <th className="px-5 py-3 font-medium">
                                             Estado
                                         </th>
-                                        <th className="px-5 py-3" />
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                                     {projects.map((project) => (
                                         <tr
-                                            key={project.name}
+                                            key={project.id}
                                             className="transition hover:bg-slate-50/80 dark:hover:bg-slate-900/50"
                                         >
                                             <td className="px-5 py-4 font-medium text-slate-800 dark:text-slate-200">
-                                                {project.name}
+                                                <Link
+                                                    className="hover:text-sky-700 dark:hover:text-sky-300"
+                                                    href={`/management/proyectos/${project.id}`}
+                                                >
+                                                    {project.name}
+                                                </Link>
                                             </td>
                                             <td className="px-5 py-4 text-slate-500 dark:text-slate-400">
                                                 {project.client}
                                             </td>
-                                            <td className="px-5 py-4">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="h-1.5 w-24 rounded-full bg-slate-100 dark:bg-slate-700">
-                                                        <div
-                                                            className={`h-1.5 rounded-full ${project.tone}`}
-                                                            style={{
-                                                                width: `${project.progress}%`,
-                                                            }}
-                                                        />
-                                                    </div>
-                                                    <span className="text-xs text-slate-500">
-                                                        {project.progress}%
-                                                    </span>
-                                                </div>
+                                            <td className="px-5 py-4 text-slate-500 dark:text-slate-400">
+                                                {project.endDate || 'Sin fecha'}
                                             </td>
                                             <td className="px-5 py-4">
                                                 <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                                                    {project.status}
+                                                    {projectStatusLabels[
+                                                        project.status
+                                                    ] ?? project.status}
                                                 </span>
-                                            </td>
-                                            <td className="px-5 py-4 text-right">
-                                                <button
-                                                    type="button"
-                                                    aria-label={`Opciones de ${project.name}`}
-                                                    className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
-                                                >
-                                                    <MoreHorizontal className="size-4" />
-                                                </button>
                                             </td>
                                         </tr>
                                     ))}
+                                    {projects.length === 0 && (
+                                        <tr>
+                                            <td
+                                                className="px-5 py-10 text-center text-slate-500 dark:text-slate-400"
+                                                colSpan={4}
+                                            >
+                                                Todavía no hay proyectos
+                                                registrados.{' '}
+                                                <Link
+                                                    className="font-medium text-sky-700 hover:underline dark:text-sky-300"
+                                                    href="/management/proyectos"
+                                                >
+                                                    Crear un proyecto
+                                                </Link>
+                                            </td>
+                                        </tr>
+                                    )}
                                 </tbody>
                             </table>
                         </CardContent>

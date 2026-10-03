@@ -27,7 +27,7 @@ El enrutamiento determina que ocurre cuando un usuario visita una URL o envia un
 
 - Actual: `routes/web.php`, `routes/settings.php`, `bootstrap/app.php`.
 - Frontend: `resources/js/routes/*`, `resources/js/actions/*`.
-- Gestion empresarial: `routes/management.php` por crear o ampliacion de `routes/web.php`.
+- Gestion empresarial: recursos empresariales registrados en `routes/web.php` bajo `management.`.
 
 Ejemplos habituales:
 
@@ -59,7 +59,7 @@ El dashboard actual se sirve mediante:
 Route::inertia('dashboard', 'dashboard')->name('dashboard');
 ```
 
-Estado actual: el dashboard ya utiliza la ruta autenticada existente. Los recursos de clientes, proyectos y tareas aun deben conectarse a Laravel.
+Estado actual: el dashboard y los recursos de clientes y proyectos ya usan rutas autenticadas; las tareas aun deben conectarse a Laravel.
 
 ### Parametros y model binding
 
@@ -157,7 +157,7 @@ Un controlador agrupa la logica relacionada con un recurso y evita poner reglas 
 ### Archivos relacionados
 
 - Actuales: `app/Http/Controllers/Settings/ProfileController.php` y `SecurityController.php`.
-- Gestion empresarial: `app/Http/Controllers/Management/ClientController.php`, `ProjectController.php` y `TaskController.php` por crear.
+- Gestion empresarial: `ClientController.php` y `ProjectController.php` implementados en `app/Http/Controllers/Management/`; `TaskController.php` queda pendiente.
 
 ### Aplicacion
 
@@ -192,8 +192,8 @@ Cada metodo que muestra una pagina usara `Inertia::render()` y entregara props t
 ### Archivos relacionados
 
 - Rutas: `routes/web.php` o `routes/management.php`.
-- Controladores: `app/Http/Controllers/Management/*Controller.php` por crear.
-- Paginas React: `resources/js/pages/clients/*`, `projects/*` y `tasks/*` por crear.
+- Controladores de clientes y proyectos: implementados en `app/Http/Controllers/Management/`.
+- Paginas React de clientes y proyectos: `resources/js/pages/management/clients/*` y `resources/js/pages/management/projects/*`; tareas quedan pendientes.
 
 ```php
 Route::resource('clientes', ClientController::class);
@@ -452,7 +452,7 @@ El binding transforma automaticamente un parametro de ruta en un modelo Eloquent
 
 - Modelo actual: `app/Models/User.php`.
 - Base de datos actual: `database/migrations/*` y `database/factories/UserFactory.php`.
-- Modelos empresariales: `app/Models/Client.php`, `Project.php` y `Task.php` por crear.
+- Modelos empresariales `Client.php` y `Project.php` implementados; `Task.php` queda pendiente.
 - Rutas con binding: `routes/management.php` por crear.
 
 ### Modelo del sistema
@@ -645,22 +645,20 @@ Este apartado distingue las funcionalidades que ya existen en el repositorio de 
 - Verificacion de email.
 - 2FA y passkeys disponibles.
 - Layout con sidebar del starter kit.
-- Dashboard React con TypeScript.
-- Tarjetas de metricas, grafico visual, actividad y tabla de proyectos de ejemplo.
+- CRUD de clientes con busqueda, paginacion, validacion y proteccion contra eliminacion cuando existen proyectos.
+- CRUD de proyectos relacionados con clientes, con filtros por nombre/cliente/estado y validacion de fechas y presupuesto.
+- Detalle de cliente con proyectos relacionados y detalle de proyecto con navegacion al cliente.
+- Dashboard React conectado a clientes, proyectos y actividad persistente.
+- Registro de actividad en tiempo real con Laravel Reverb.
 - Tailwind, Vite y modo oscuro.
-- Validacion TypeScript y build de produccion.
+- Validacion TypeScript, pruebas Feature y build de produccion.
 
 ### Pendiente
 
-- Modelos `Client`, `Project` y `Task`.
-- Migraciones y factories.
-- Resource Controllers.
-- Form Requests.
+- CRUD de tareas y asignacion a usuarios.
 - Policies y roles.
-- Datos reales para el dashboard.
 - Modulo de documentos.
-- Auditoria y actividad persistente.
-- Pruebas Feature de rutas, validacion y autorizacion.
+- Auditoria detallada de cambios.
 
 ---
 
@@ -672,19 +670,18 @@ El orden de desarrollo organiza el trabajo desde el primer modulo funcional hast
 
 ### Archivos que se iran incorporando
 
-- Primera fase: `app/Models/Client.php`, migracion, factory, controller, requests, policy y paginas React.
-- Segunda fase: equivalentes de `Project` y `Task`.
+- Primera fase implementada: CRUD de clientes.
+- Segunda fase implementada: CRUD de proyectos relacionados con clientes.
+- Siguiente fase: CRUD de tareas relacionadas con proyectos y usuarios.
 - Tercera fase: documentos, auditoria, roles, pruebas y metricas reales.
 
-1. Crear clientes: modelo, migracion, CRUD, validacion y Policy.
-2. Conectar clientes con el dashboard.
-3. Crear proyectos relacionados con clientes.
-4. Crear tareas y asignacion a usuarios.
-5. Agregar roles y permisos.
-6. Incorporar documentos y descargas autorizadas.
-7. Sustituir metricas de ejemplo por consultas reales.
-8. Agregar auditoria, logs y pruebas.
-9. Optimizar consultas y preparar cache para produccion.
+1. Implementar CRUD de clientes y conectarlo con el dashboard. (Completado)
+2. Implementar CRUD de proyectos relacionados con clientes. (Completado)
+3. Crear tareas y asignacion a usuarios.
+4. Agregar roles y permisos.
+5. Incorporar documentos y descargas autorizadas.
+6. Agregar auditoria, logs y pruebas adicionales.
+7. Optimizar consultas y preparar cache para produccion.
 
 ---
 
@@ -971,4 +968,3 @@ resources/js/pages/clients/edit.tsx
 8. Cubrir acceso permitido y denegado con pruebas Feature.
 
 Este patron sera la base de clientes, proyectos, tareas, documentos y cualquier modulo nuevo del sistema.
-
