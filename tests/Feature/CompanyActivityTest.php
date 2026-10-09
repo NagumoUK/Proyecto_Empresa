@@ -1,9 +1,12 @@
 <?php
 
+use App\Contracts\CompanyActivityRecorder;
 use App\Events\ActivityCreated;
 use App\Models\CompanyActivity;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Log;
 
 test('authenticated users can create an activity and broadcast it', function () {
     $user = User::factory()->create();
@@ -35,6 +38,37 @@ test('activity descriptions are required and limited to 280 characters', functio
         ->assertSessionHasErrors('description');
 
     $this->assertDatabaseCount('company_activities', 0);
+});
+
+test('activity broadcasts are discarded when their transaction rolls back', function () {
+    $user = User::factory()->create();
+    Event::fake([ActivityCreated::class]);
+
+    expect(fn () => DB::transaction(function () use ($user): void {
+        app(CompanyActivityRecorder::class)->record($user, 'No debe persistir');
+
+        throw new RuntimeException('Rollback activity transaction.');
+    }))->toThrow(RuntimeException::class, 'Rollback activity transaction.');
+
+    $this->assertDatabaseCount('company_activities', 0);
+    Event::assertNotDispatched(ActivityCreated::class);
+});
+
+test('activity events are handled by the discovered logging listener', function () {
+    $user = User::factory()->create();
+    Log::spy();
+
+    $this->actingAs($user)
+        ->post(route('activities.store'), ['description' => 'Registro para el log'])
+        ->assertRedirect(route('dashboard'));
+
+    $activity = CompanyActivity::query()->firstOrFail();
+
+    Log::shouldHaveReceived('info')
+        ->once()
+        ->with('Company activity created.', [
+            'activity_id' => $activity->getKey(),
+        ]);
 });
 
 test('dashboard returns the latest activity with its author', function () {

@@ -649,7 +649,7 @@ Este apartado distingue las funcionalidades que ya existen en el repositorio de 
 - CRUD de proyectos relacionados con clientes, con filtros por nombre/cliente/estado y validacion de fechas y presupuesto.
 - Detalle de cliente con proyectos relacionados y detalle de proyecto con navegacion al cliente.
 - Dashboard React conectado a clientes, proyectos y actividad persistente.
-- Registro de actividad en tiempo real con Laravel Reverb.
+- Registro de actividad en tiempo real con Ably Pub/Sub.
 - Tailwind, Vite y modo oscuro.
 - Validacion TypeScript, pruebas Feature y build de produccion.
 

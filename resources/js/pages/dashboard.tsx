@@ -1,5 +1,4 @@
 import { Head, Link, useForm } from '@inertiajs/react';
-import { useConnectionStatus, useEcho } from '@laravel/echo-react';
 import {
     BriefcaseBusiness,
     CheckCircle2,
@@ -55,25 +54,41 @@ export default function Dashboard({
     projects,
 }: DashboardProps) {
     const [activities, setActivities] = useState(initialActivities);
+    const [connectionStatus, setConnectionStatus] = useState('connecting');
     const form = useForm({ description: '' });
-    const connectionStatus = useConnectionStatus();
 
     useEffect(() => {
         setActivities(initialActivities);
     }, [initialActivities]);
 
-    useEcho<ActivityBroadcast>(
-        'activities',
-        '.activity.created',
-        ({ activity }) => {
+    useEffect(() => {
+        const echo = window.Echo;
+        const channel = echo.private('activities');
+
+        channel.listen('.activity.created', ({ activity }: ActivityBroadcast) => {
             setActivities((current) =>
                 [
                     activity,
                     ...current.filter((item) => item.id !== activity.id),
                 ].slice(0, 8),
             );
-        },
-    );
+        });
+
+        const updateConnectionStatus = (state: { current: string }) => {
+            setConnectionStatus(state.current);
+        };
+
+        const connection = echo.connector.ably.connection;
+
+        setConnectionStatus(connection.state);
+        connection.on(updateConnectionStatus);
+
+        return () => {
+            channel.stopListening('.activity.created');
+            connection.off(updateConnectionStatus);
+            echo.leaveChannel('private:activities');
+        };
+    }, []);
 
     function submitActivity(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
@@ -282,7 +297,9 @@ export default function Dashboard({
                                     />
                                     {connectionStatus === 'connected'
                                         ? 'En vivo'
-                                        : 'Reverb sin conexión'}
+                                        : connectionStatus === 'connecting'
+                                          ? 'Conectando con Ably...'
+                                          : 'Ably sin conexión'}
                                 </div>
                             </CardHeader>
                             <CardContent className="px-5 py-2">

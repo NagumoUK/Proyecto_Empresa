@@ -6,11 +6,12 @@ use App\Models\CompanyActivity;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
+use Illuminate\Contracts\Events\ShouldDispatchAfterCommit;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Carbon;
 
-class ActivityCreated implements ShouldBroadcastNow
+class ActivityCreated implements ShouldBroadcastNow, ShouldDispatchAfterCommit
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
