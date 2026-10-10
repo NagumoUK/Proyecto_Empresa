@@ -28,10 +28,16 @@ test('authenticated users can create an activity and broadcast it', function () 
     });
 });
 
-test('activity descriptions are required and limited to 280 characters', function () {
+test('activity descriptions must be strings between 1 and 280 characters', function () {
     $this->actingAs(User::factory()->create())
         ->post(route('activities.store'), ['description' => ''])
         ->assertSessionHasErrors('description');
+
+    $this->actingAs(User::factory()->create())
+        ->post(route('activities.store'), ['description' => ['invalid']])
+        ->assertSessionHasErrors('description');
+
+    $this->assertDatabaseCount('company_activities', 0);
 
     $this->actingAs(User::factory()->create())
         ->post(route('activities.store'), ['description' => str_repeat('x', 281)])

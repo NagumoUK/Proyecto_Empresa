@@ -57,6 +57,12 @@ test('authenticated users can create, view, search and update clients', function
     ]);
 });
 
+test('client search accepts only a string of up to 255 characters', function () {
+    $this->actingAs(User::factory()->create())
+        ->get(route('management.clientes.index', ['search' => ['invalid']]))
+        ->assertSessionHasErrors('search');
+});
+
 test('client emails must be unique and required fields must be valid', function () {
     $this->actingAs(User::factory()->create());
     Client::query()->create([

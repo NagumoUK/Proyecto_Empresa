@@ -3,18 +3,18 @@
 namespace App\Http\Controllers\Management;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Management\IndexProjectRequest;
 use App\Http\Requests\Management\StoreProjectRequest;
 use App\Http\Requests\Management\UpdateProjectRequest;
 use App\Models\Client;
 use App\Models\Project;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class ProjectController extends Controller
 {
-    public function index(Request $request): Response
+    public function index(IndexProjectRequest $request): Response
     {
         $search = $request->string('search')->trim()->toString();
         $status = $request->string('status')->toString();

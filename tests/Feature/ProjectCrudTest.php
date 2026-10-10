@@ -64,6 +64,20 @@ test('authenticated users can create, view, filter and update projects', functio
     ]);
 });
 
+test('project filters accept only string values', function () {
+    $this->actingAs(User::factory()->create())
+        ->get(route('management.proyectos.index', [
+            'search' => ['invalid'],
+        ]))
+        ->assertSessionHasErrors('search');
+
+    $this->actingAs(User::factory()->create())
+        ->get(route('management.proyectos.index', [
+            'status' => ['invalid'],
+        ]))
+        ->assertSessionHasErrors('status');
+});
+
 test('projects require a valid client, status, budget and date order', function () {
     $this->actingAs(User::factory()->create());
 

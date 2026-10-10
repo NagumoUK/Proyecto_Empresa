@@ -167,3 +167,27 @@ INSERT INTO migrations (migration, batch) VALUES
     ('2026_10_02_000001_create_projects_table', 1);
 
 COMMIT;
+
+-- Optional initial login account. This application does not currently define
+-- administrator roles, so this creates a regular user account.
+-- Run this block separately if the schema above has already been applied.
+INSERT INTO users (
+    name,
+    email,
+    email_verified_at,
+    password,
+    created_at,
+    updated_at
+) VALUES (
+    'David',
+    'solanoalexander567@gmail.com',
+    CURRENT_TIMESTAMP,
+    '$2y$12$/oQSr0Vms0DwPsjPS1MpNeEpdjUP/MwK8g/6kq1pWaUYGnKl1Tf3q',
+    CURRENT_TIMESTAMP,
+    CURRENT_TIMESTAMP
+)
+ON CONFLICT (email) DO UPDATE SET
+    name = EXCLUDED.name,
+    email_verified_at = EXCLUDED.email_verified_at,
+    password = EXCLUDED.password,
+    updated_at = EXCLUDED.updated_at;
