@@ -19,6 +19,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { formatPEN } from '@/lib/currency';
 import { dashboard } from '@/routes';
 
 type ProjectStatus =
@@ -390,17 +391,7 @@ export default function ProjectsIndex({
                                             </td>
                                             <td className="px-5 py-4 text-slate-600 dark:text-slate-300">
                                                 {project.budget
-                                                    ? new Intl.NumberFormat(
-                                                          'es-MX',
-                                                          {
-                                                              style: 'currency',
-                                                              currency: 'MXN',
-                                                          },
-                                                      ).format(
-                                                          Number(
-                                                              project.budget,
-                                                          ),
-                                                      )
+                                                    ? formatPEN(project.budget)
                                                     : 'Sin definir'}
                                             </td>
                                             <td className="px-5 py-4">
@@ -574,7 +565,7 @@ export default function ProjectsIndex({
                             </Field>
                             <Field
                                 error={form.errors.budget}
-                                label="Presupuesto (MXN)"
+                                label="Presupuesto (S/)"
                             >
                                 <Input
                                     min="0"

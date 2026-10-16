@@ -2,6 +2,7 @@ import { Link } from '@inertiajs/react';
 import {
     BookOpen,
     BriefcaseBusiness,
+    FileText,
     FolderGit2,
     LayoutGrid,
     Users,
@@ -37,6 +38,11 @@ const mainNavItems: NavItem[] = [
         title: 'Proyectos',
         href: '/management/proyectos',
         icon: BriefcaseBusiness,
+    },
+    {
+        title: 'Cotizaciones y facturas',
+        href: '/management/documentos',
+        icon: FileText,
     },
 ];
 

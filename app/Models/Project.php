@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
 /**
@@ -14,6 +15,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $description
  * @property string $status
  * @property string|null $budget
+ * @property string $budget_currency
  * @property Carbon|null $start_date
  * @property Carbon|null $end_date
  * @property Client $client
@@ -27,6 +29,18 @@ class Project extends Model
     public function client(): BelongsTo
     {
         return $this->belongsTo(Client::class);
+    }
+
+    /** @return HasMany<ProjectFile, $this> */
+    public function files(): HasMany
+    {
+        return $this->hasMany(ProjectFile::class);
+    }
+
+    /** @return HasMany<FinancialDocument, $this> */
+    public function financialDocuments(): HasMany
+    {
+        return $this->hasMany(FinancialDocument::class);
     }
 
     /** @return array<string, string> */

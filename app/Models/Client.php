@@ -23,4 +23,10 @@ class Client extends Model
     {
         return $this->hasMany(Project::class);
     }
+
+    /** @return HasMany<FinancialDocument, $this> */
+    public function financialDocuments(): HasMany
+    {
+        return $this->hasMany(FinancialDocument::class);
+    }
 }

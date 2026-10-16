@@ -64,10 +64,20 @@ class ProjectController extends Controller
 
     public function show(Project $proyecto): Response
     {
-        $proyecto->load('client');
+        $proyecto->load([
+            'client',
+            'files' => fn ($query) => $query->latest(),
+        ]);
 
         return Inertia::render('management/projects/show', [
             'project' => $proyecto,
+            'files' => $proyecto->files->map(fn ($file): array => [
+                'id' => $file->id,
+                'name' => $file->original_name,
+                'mimeType' => $file->mime_type,
+                'size' => $file->size,
+                'uploadedAt' => $file->created_at?->toIso8601String(),
+            ])->all(),
         ]);
     }
 
@@ -85,6 +95,12 @@ class ProjectController extends Controller
 
     public function destroy(Project $proyecto): RedirectResponse
     {
+        if ($proyecto->financialDocuments()->exists()) {
+            return back()->withErrors([
+                'delete' => 'No puedes eliminar este proyecto porque tiene cotizaciones o facturas asociadas.',
+            ]);
+        }
+
         $proyecto->delete();
 
         Inertia::flash('toast', [

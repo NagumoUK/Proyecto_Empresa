@@ -27,6 +27,26 @@ php artisan config:clear
 El cliente React se conecta con autenticación del endpoint de broadcasting de
 Laravel; no necesita ninguna clave de Ably en el navegador.
 
+### Notificaciones por correo de actividades
+
+Al registrar una actividad, Laravel encola un correo para cada usuario que ya
+haya verificado su dirección. Completa `MAIL_MAILER=smtp`, `MAIL_HOST`,
+`MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM_ADDRESS` y
+`MAIL_FROM_NAME` en el `.env` con los datos de tu proveedor SMTP. En desarrollo,
+`MAIL_MAILER=log` escribe los mensajes en el log en lugar de enviarlos.
+
+La conexión de cola predeterminada es `database`; aplica las migraciones y deja
+un worker ejecutándose para procesar las notificaciones:
+
+```bash
+php artisan migrate
+php artisan queue:work
+```
+
+Si no hay un worker en ejecución, los correos quedan pendientes en la tabla
+`jobs` y no se envían hasta que la cola se procese. Las notificaciones se
+programan después de confirmar la transacción de base de datos.
+
 ## Base de datos Supabase
 
 La conexión PostgreSQL ya está seleccionada en `.env` (`DB_CONNECTION=pgsql`)
@@ -72,6 +92,26 @@ inicial manual en un proyecto Supabase vacío, incluidas las tablas Laravel de
 sesiones, caché y colas. Se recomienda usar `php artisan migrate`; ejecuta el
 script SQL solo como alternativa en una base vacía. El script registra las
 migraciones para que Artisan reconozca las tablas si luego consultas su estado.
+
+### Archivos adjuntos de proyectos
+
+Los proyectos aceptan adjuntos privados PDF, documentos Word/Excel, CSV,
+imágenes PNG/JPG/WebP y texto plano, con un máximo de 20 MB por archivo. Se
+guardan en el disco configurado con `PROJECT_FILES_DISK` (`local` por defecto,
+bajo `storage/app/private`) y se sirven únicamente mediante una ruta autenticada
+de descarga. Para cambiar el disco, configúralo en el `.env`; el driver S3
+requiere sus credenciales y el adaptador Flysystem correspondiente.
+
+Aplica el cambio de esquema con:
+
+```bash
+php artisan migrate
+```
+
+La pantalla de detalle del proyecto permite cargar, descargar y eliminar
+adjuntos. El tamaño se presenta según el idioma del navegador, y Laravel usa
+helpers como `to_route()` para redirigir después de las operaciones y `report()`
+para registrar fallos al limpiar un archivo si falla su registro en la base.
 
 Para depurar registros antiguos, primero revisa cuántos se eliminarían y luego
 ejecuta la limpieza:

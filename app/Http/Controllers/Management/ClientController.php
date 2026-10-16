@@ -76,9 +76,9 @@ class ClientController extends Controller
 
     public function destroy(Client $cliente): RedirectResponse
     {
-        if ($cliente->projects()->exists()) {
+        if ($cliente->projects()->exists() || $cliente->financialDocuments()->exists()) {
             return back()->withErrors([
-                'delete' => 'No puedes eliminar este cliente porque tiene proyectos asociados.',
+                'delete' => 'No puedes eliminar este cliente porque tiene proyectos, cotizaciones o facturas asociadas.',
             ]);
         }
 

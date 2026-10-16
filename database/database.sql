@@ -139,6 +139,7 @@ CREATE TABLE projects (
     description TEXT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'planning',
     budget NUMERIC(12, 2) NULL,
+    budget_currency CHAR(3) NOT NULL DEFAULT 'PEN',
     start_date DATE NULL,
     end_date DATE NULL,
     created_at TIMESTAMP(0) WITHOUT TIME ZONE NULL,
@@ -149,6 +150,75 @@ CREATE TABLE projects (
 
 CREATE INDEX projects_status_index ON projects (status);
 CREATE INDEX projects_client_id_status_index ON projects (client_id, status);
+
+CREATE TABLE financial_documents (
+    id BIGSERIAL PRIMARY KEY,
+    client_id BIGINT NOT NULL,
+    project_id BIGINT NULL,
+    created_by BIGINT NULL,
+    source_document_id BIGINT NULL UNIQUE,
+    type VARCHAR(20) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'draft',
+    currency CHAR(3) NOT NULL DEFAULT 'PEN',
+    issue_date DATE NOT NULL,
+    due_date DATE NULL,
+    notes TEXT NULL,
+    subtotal NUMERIC(14, 2) NOT NULL DEFAULT 0,
+    tax_rate NUMERIC(5, 2) NOT NULL DEFAULT 18,
+    tax_amount NUMERIC(14, 2) NOT NULL DEFAULT 0,
+    total NUMERIC(14, 2) NOT NULL DEFAULT 0,
+    created_at TIMESTAMP(0) WITHOUT TIME ZONE NULL,
+    updated_at TIMESTAMP(0) WITHOUT TIME ZONE NULL,
+    CONSTRAINT financial_documents_client_id_foreign
+        FOREIGN KEY (client_id) REFERENCES clients (id) ON DELETE RESTRICT,
+    CONSTRAINT financial_documents_project_id_foreign
+        FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE RESTRICT,
+    CONSTRAINT financial_documents_created_by_foreign
+        FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL,
+    CONSTRAINT financial_documents_source_document_id_foreign
+        FOREIGN KEY (source_document_id) REFERENCES financial_documents (id) ON DELETE RESTRICT
+);
+
+CREATE INDEX financial_documents_type_status_issue_date_index
+    ON financial_documents (type, status, issue_date);
+CREATE INDEX financial_documents_client_id_created_at_index
+    ON financial_documents (client_id, created_at);
+
+CREATE TABLE financial_document_items (
+    id BIGSERIAL PRIMARY KEY,
+    financial_document_id BIGINT NOT NULL,
+    description VARCHAR(255) NOT NULL,
+    quantity NUMERIC(12, 2) NOT NULL,
+    unit_price NUMERIC(12, 2) NOT NULL,
+    line_total NUMERIC(14, 2) NOT NULL,
+    created_at TIMESTAMP(0) WITHOUT TIME ZONE NULL,
+    updated_at TIMESTAMP(0) WITHOUT TIME ZONE NULL,
+    CONSTRAINT financial_document_items_financial_document_id_foreign
+        FOREIGN KEY (financial_document_id) REFERENCES financial_documents (id) ON DELETE CASCADE
+);
+
+CREATE INDEX financial_document_items_financial_document_id_id_index
+    ON financial_document_items (financial_document_id, id);
+
+CREATE TABLE project_files (
+    id BIGSERIAL PRIMARY KEY,
+    project_id BIGINT NOT NULL,
+    uploaded_by BIGINT NULL,
+    disk VARCHAR(50) NOT NULL DEFAULT 'local',
+    path VARCHAR(1024) NOT NULL UNIQUE,
+    original_name VARCHAR(255) NOT NULL,
+    mime_type VARCHAR(127) NOT NULL,
+    size BIGINT NOT NULL,
+    created_at TIMESTAMP(0) WITHOUT TIME ZONE NULL,
+    updated_at TIMESTAMP(0) WITHOUT TIME ZONE NULL,
+    CONSTRAINT project_files_project_id_foreign
+        FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE,
+    CONSTRAINT project_files_uploaded_by_foreign
+        FOREIGN KEY (uploaded_by) REFERENCES users (id) ON DELETE SET NULL
+);
+
+CREATE INDEX project_files_project_id_created_at_index
+    ON project_files (project_id, created_at);
 
 CREATE TABLE migrations (
     id SERIAL PRIMARY KEY,
@@ -164,7 +234,11 @@ INSERT INTO migrations (migration, batch) VALUES
     ('2025_08_14_170933_add_two_factor_columns_to_users_table', 1),
     ('2026_10_01_000000_create_company_activities_table', 1),
     ('2026_10_02_000000_create_clients_table', 1),
-    ('2026_10_02_000001_create_projects_table', 1);
+    ('2026_10_02_000001_create_projects_table', 1),
+    ('2026_10_16_164519_create_project_files_table', 2),
+    ('2026_10_16_171745_create_financial_documents_table', 3),
+    ('2026_10_16_171746_create_financial_document_items_table', 3),
+    ('2026_10_16_171749_add_budget_currency_to_projects_table', 3);
 
 COMMIT;
 
