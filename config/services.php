@@ -35,4 +35,11 @@ return [
         ],
     ],
 
+    'external_api' => [
+        'base_url' => env('EXTERNAL_API_BASE_URL'),
+        'token' => env('EXTERNAL_API_TOKEN'),
+        'connect_timeout' => (int) env('EXTERNAL_API_CONNECT_TIMEOUT', 3),
+        'timeout' => (int) env('EXTERNAL_API_TIMEOUT', 10),
+    ],
+
 ];

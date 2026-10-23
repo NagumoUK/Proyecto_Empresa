@@ -4,6 +4,7 @@ use App\Models\Client;
 use App\Models\FinancialDocument;
 use App\Models\Project;
 use App\Models\User;
+use Illuminate\Support\Facades\Mail;
 
 test('guests cannot access financial documents', function () {
     $this->get(route('management.documentos.index'))
@@ -237,6 +238,8 @@ test('only draft documents without invoices can be deleted', function () {
 });
 
 test('clients and projects with financial documents cannot be deleted', function () {
+    Mail::fake();
+
     $this->actingAs(User::factory()->create());
     $client = Client::query()->create(['name' => 'Cliente con factura', 'status' => 'active']);
     $project = Project::query()->create([
@@ -261,4 +264,5 @@ test('clients and projects with financial documents cannot be deleted', function
 
     $this->assertModelExists($project);
     $this->assertModelExists($client);
+    Mail::assertNothingSent();
 });

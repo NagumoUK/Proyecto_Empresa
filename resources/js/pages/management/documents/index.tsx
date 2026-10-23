@@ -1,4 +1,4 @@
-import { Head, Link, router, useForm } from '@inertiajs/react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { FileText, Plus, Search } from 'lucide-react';
 import { useMemo, useState, type FormEvent } from 'react';
 import { Button } from '@/components/ui/button';
@@ -19,6 +19,7 @@ import {
     store as storeDocument,
 } from '@/routes/management/documentos';
 import { dashboard } from '@/routes';
+import type { Auth } from '@/types/auth';
 
 type DocumentType = 'quote' | 'invoice';
 type DocumentStatus =
@@ -153,6 +154,8 @@ export default function FinancialDocumentsIndex({
     stats,
     filters,
 }: PageProps) {
+    const { auth } = usePage<{ auth: Auth }>().props;
+    const canManage = auth.user.role !== 'viewer';
     const [search, setSearch] = useState(filters.search);
     const [typeFilter, setTypeFilter] = useState(filters.type);
     const [statusFilter, setStatusFilter] = useState(filters.status);
@@ -240,12 +243,14 @@ export default function FinancialDocumentsIndex({
                                 SUNAT.
                             </p>
                         </div>
-                        <Button
-                            disabled={clients.length === 0}
-                            onClick={openCreateDialog}
-                        >
-                            <Plus className="size-4" /> Nuevo documento
-                        </Button>
+                        {canManage && (
+                            <Button
+                                disabled={clients.length === 0}
+                                onClick={openCreateDialog}
+                            >
+                                <Plus className="size-4" /> Nuevo documento
+                            </Button>
+                        )}
                     </header>
 
                     {clients.length === 0 && (
@@ -468,274 +473,289 @@ export default function FinancialDocumentsIndex({
                 </div>
             </main>
 
-            <Dialog onOpenChange={setDialogOpen} open={dialogOpen}>
-                <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
-                    <DialogHeader>
-                        <DialogTitle>
-                            Crear cotización o factura interna
-                        </DialogTitle>
-                        <DialogDescription>
-                            Registra los conceptos; el subtotal, el IGV (18%) y
-                            el total se calculan automáticamente en soles.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <form className="grid gap-5" onSubmit={submitDocument}>
-                        <div className="grid gap-4 sm:grid-cols-2">
-                            <Field
-                                error={form.errors.type}
-                                label="Tipo de documento"
-                            >
-                                <select
-                                    className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
-                                    onChange={(event) =>
-                                        form.setData(
-                                            'type',
-                                            event.target.value as DocumentType,
-                                        )
-                                    }
-                                    value={form.data.type}
-                                >
-                                    <option value="quote">Cotización</option>
-                                    <option value="invoice">
-                                        Factura interna
-                                    </option>
-                                </select>
-                            </Field>
-                            <Field
-                                error={form.errors.client_id}
-                                label="Cliente"
-                            >
-                                <select
-                                    className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
-                                    onChange={(event) => {
-                                        form.setData({
-                                            ...form.data,
-                                            client_id: event.target.value,
-                                            project_id: '',
-                                        });
-                                    }}
-                                    value={form.data.client_id}
-                                >
-                                    <option value="">
-                                        Selecciona un cliente
-                                    </option>
-                                    {clients.map((client) => (
-                                        <option
-                                            key={client.id}
-                                            value={client.id}
-                                        >
-                                            {client.company || client.name}
-                                        </option>
-                                    ))}
-                                </select>
-                            </Field>
-                            <Field
-                                error={form.errors.project_id}
-                                label="Proyecto (opcional)"
-                            >
-                                <select
-                                    className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
-                                    onChange={(event) =>
-                                        form.setData(
-                                            'project_id',
-                                            event.target.value,
-                                        )
-                                    }
-                                    value={form.data.project_id}
-                                >
-                                    <option value="">Sin proyecto</option>
-                                    {selectedProjects.map((project) => (
-                                        <option
-                                            key={project.id}
-                                            value={project.id}
-                                        >
-                                            {project.name}
-                                        </option>
-                                    ))}
-                                </select>
-                            </Field>
-                            <Field
-                                error={form.errors.issue_date}
-                                label="Fecha de emisión"
-                            >
-                                <Input
-                                    onChange={(event) =>
-                                        form.setData(
-                                            'issue_date',
-                                            event.target.value,
-                                        )
-                                    }
-                                    type="date"
-                                    value={form.data.issue_date}
-                                />
-                            </Field>
-                            {form.data.type === 'invoice' && (
+            {canManage && (
+                <Dialog onOpenChange={setDialogOpen} open={dialogOpen}>
+                    <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
+                        <DialogHeader>
+                            <DialogTitle>
+                                Crear cotización o factura interna
+                            </DialogTitle>
+                            <DialogDescription>
+                                Registra los conceptos; el subtotal, el IGV
+                                (18%) y el total se calculan automáticamente en
+                                soles.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <form className="grid gap-5" onSubmit={submitDocument}>
+                            <div className="grid gap-4 sm:grid-cols-2">
                                 <Field
-                                    error={form.errors.due_date}
-                                    label="Fecha de vencimiento"
+                                    error={form.errors.type}
+                                    label="Tipo de documento"
+                                >
+                                    <select
+                                        className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                                        onChange={(event) =>
+                                            form.setData(
+                                                'type',
+                                                event.target
+                                                    .value as DocumentType,
+                                            )
+                                        }
+                                        value={form.data.type}
+                                    >
+                                        <option value="quote">
+                                            Cotización
+                                        </option>
+                                        <option value="invoice">
+                                            Factura interna
+                                        </option>
+                                    </select>
+                                </Field>
+                                <Field
+                                    error={form.errors.client_id}
+                                    label="Cliente"
+                                >
+                                    <select
+                                        className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                                        onChange={(event) => {
+                                            form.setData({
+                                                ...form.data,
+                                                client_id: event.target.value,
+                                                project_id: '',
+                                            });
+                                        }}
+                                        value={form.data.client_id}
+                                    >
+                                        <option value="">
+                                            Selecciona un cliente
+                                        </option>
+                                        {clients.map((client) => (
+                                            <option
+                                                key={client.id}
+                                                value={client.id}
+                                            >
+                                                {client.company || client.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </Field>
+                                <Field
+                                    error={form.errors.project_id}
+                                    label="Proyecto (opcional)"
+                                >
+                                    <select
+                                        className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                                        onChange={(event) =>
+                                            form.setData(
+                                                'project_id',
+                                                event.target.value,
+                                            )
+                                        }
+                                        value={form.data.project_id}
+                                    >
+                                        <option value="">Sin proyecto</option>
+                                        {selectedProjects.map((project) => (
+                                            <option
+                                                key={project.id}
+                                                value={project.id}
+                                            >
+                                                {project.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </Field>
+                                <Field
+                                    error={form.errors.issue_date}
+                                    label="Fecha de emisión"
                                 >
                                     <Input
                                         onChange={(event) =>
                                             form.setData(
-                                                'due_date',
+                                                'issue_date',
                                                 event.target.value,
                                             )
                                         }
                                         type="date"
-                                        value={form.data.due_date}
+                                        value={form.data.issue_date}
                                     />
                                 </Field>
-                            )}
-                        </div>
-
-                        <div className="grid gap-3">
-                            <div className="flex items-center justify-between">
-                                <h3 className="font-semibold text-slate-900 dark:text-white">
-                                    Conceptos
-                                </h3>
-                                <Button
-                                    onClick={() =>
-                                        form.setData('items', [
-                                            ...form.data.items,
-                                            { ...emptyItem },
-                                        ])
-                                    }
-                                    type="button"
-                                    variant="outline"
-                                >
-                                    <Plus className="size-4" /> Agregar concepto
-                                </Button>
+                                {form.data.type === 'invoice' && (
+                                    <Field
+                                        error={form.errors.due_date}
+                                        label="Fecha de vencimiento"
+                                    >
+                                        <Input
+                                            onChange={(event) =>
+                                                form.setData(
+                                                    'due_date',
+                                                    event.target.value,
+                                                )
+                                            }
+                                            type="date"
+                                            value={form.data.due_date}
+                                        />
+                                    </Field>
+                                )}
                             </div>
-                            {form.data.items.map((item, index) => (
-                                <div
-                                    className="grid gap-3 rounded-lg border border-slate-200 p-3 sm:grid-cols-[minmax(0,1fr)_100px_140px_auto] dark:border-slate-800"
-                                    key={index}
-                                >
-                                    <Field
-                                        error={
-                                            formErrors[
-                                                `items.${index}.description`
-                                            ]
-                                        }
-                                        label="Descripción"
-                                    >
-                                        <Input
-                                            maxLength={255}
-                                            onChange={(event) =>
-                                                updateItem(
-                                                    index,
-                                                    'description',
-                                                    event.target.value,
-                                                )
-                                            }
-                                            value={item.description}
-                                        />
-                                    </Field>
-                                    <Field
-                                        error={
-                                            formErrors[
-                                                `items.${index}.quantity`
-                                            ]
-                                        }
-                                        label="Cantidad"
-                                    >
-                                        <Input
-                                            min="0.01"
-                                            onChange={(event) =>
-                                                updateItem(
-                                                    index,
-                                                    'quantity',
-                                                    event.target.value,
-                                                )
-                                            }
-                                            step="0.01"
-                                            type="number"
-                                            value={item.quantity}
-                                        />
-                                    </Field>
-                                    <Field
-                                        error={
-                                            formErrors[
-                                                `items.${index}.unit_price`
-                                            ]
-                                        }
-                                        label="Precio unitario (S/)"
-                                    >
-                                        <Input
-                                            min="0"
-                                            onChange={(event) =>
-                                                updateItem(
-                                                    index,
-                                                    'unit_price',
-                                                    event.target.value,
-                                                )
-                                            }
-                                            step="0.01"
-                                            type="number"
-                                            value={item.unit_price}
-                                        />
-                                    </Field>
+
+                            <div className="grid gap-3">
+                                <div className="flex items-center justify-between">
+                                    <h3 className="font-semibold text-slate-900 dark:text-white">
+                                        Conceptos
+                                    </h3>
                                     <Button
-                                        aria-label={`Quitar concepto ${index + 1}`}
-                                        className="self-end"
-                                        disabled={form.data.items.length === 1}
                                         onClick={() =>
-                                            form.setData(
-                                                'items',
-                                                form.data.items.filter(
-                                                    (_, itemIndex) =>
-                                                        itemIndex !== index,
-                                                ),
-                                            )
+                                            form.setData('items', [
+                                                ...form.data.items,
+                                                { ...emptyItem },
+                                            ])
                                         }
                                         type="button"
                                         variant="outline"
                                     >
-                                        Quitar
+                                        <Plus className="size-4" /> Agregar
+                                        concepto
                                     </Button>
                                 </div>
-                            ))}
-                            {form.errors.items && (
-                                <p className="text-xs text-rose-600">
-                                    {form.errors.items}
-                                </p>
-                            )}
-                            <div className="ml-auto grid min-w-64 gap-1 text-right text-sm">
-                                <p className="text-slate-600 dark:text-slate-300">
-                                    Subtotal: {formatPEN(subtotal)}
-                                </p>
-                                <p className="text-slate-600 dark:text-slate-300">
-                                    IGV (18%): {formatPEN(igv)}
-                                </p>
-                                <p className="font-semibold text-slate-950 dark:text-white">
-                                    Total: {formatPEN(total)}
-                                </p>
+                                {form.data.items.map((item, index) => (
+                                    <div
+                                        className="grid gap-3 rounded-lg border border-slate-200 p-3 sm:grid-cols-[minmax(0,1fr)_100px_140px_auto] dark:border-slate-800"
+                                        key={index}
+                                    >
+                                        <Field
+                                            error={
+                                                formErrors[
+                                                    `items.${index}.description`
+                                                ]
+                                            }
+                                            label="Descripción"
+                                        >
+                                            <Input
+                                                maxLength={255}
+                                                onChange={(event) =>
+                                                    updateItem(
+                                                        index,
+                                                        'description',
+                                                        event.target.value,
+                                                    )
+                                                }
+                                                value={item.description}
+                                            />
+                                        </Field>
+                                        <Field
+                                            error={
+                                                formErrors[
+                                                    `items.${index}.quantity`
+                                                ]
+                                            }
+                                            label="Cantidad"
+                                        >
+                                            <Input
+                                                min="0.01"
+                                                onChange={(event) =>
+                                                    updateItem(
+                                                        index,
+                                                        'quantity',
+                                                        event.target.value,
+                                                    )
+                                                }
+                                                step="0.01"
+                                                type="number"
+                                                value={item.quantity}
+                                            />
+                                        </Field>
+                                        <Field
+                                            error={
+                                                formErrors[
+                                                    `items.${index}.unit_price`
+                                                ]
+                                            }
+                                            label="Precio unitario (S/)"
+                                        >
+                                            <Input
+                                                min="0"
+                                                onChange={(event) =>
+                                                    updateItem(
+                                                        index,
+                                                        'unit_price',
+                                                        event.target.value,
+                                                    )
+                                                }
+                                                step="0.01"
+                                                type="number"
+                                                value={item.unit_price}
+                                            />
+                                        </Field>
+                                        <Button
+                                            aria-label={`Quitar concepto ${index + 1}`}
+                                            className="self-end"
+                                            disabled={
+                                                form.data.items.length === 1
+                                            }
+                                            onClick={() =>
+                                                form.setData(
+                                                    'items',
+                                                    form.data.items.filter(
+                                                        (_, itemIndex) =>
+                                                            itemIndex !== index,
+                                                    ),
+                                                )
+                                            }
+                                            type="button"
+                                            variant="outline"
+                                        >
+                                            Quitar
+                                        </Button>
+                                    </div>
+                                ))}
+                                {form.errors.items && (
+                                    <p className="text-xs text-rose-600">
+                                        {form.errors.items}
+                                    </p>
+                                )}
+                                <div className="ml-auto grid min-w-64 gap-1 text-right text-sm">
+                                    <p className="text-slate-600 dark:text-slate-300">
+                                        Subtotal: {formatPEN(subtotal)}
+                                    </p>
+                                    <p className="text-slate-600 dark:text-slate-300">
+                                        IGV (18%): {formatPEN(igv)}
+                                    </p>
+                                    <p className="font-semibold text-slate-950 dark:text-white">
+                                        Total: {formatPEN(total)}
+                                    </p>
+                                </div>
                             </div>
-                        </div>
 
-                        <Field
-                            error={form.errors.notes}
-                            label="Notas (opcional)"
-                        >
-                            <textarea
-                                className="min-h-20 rounded-md border border-input bg-transparent px-3 py-2 text-sm"
-                                maxLength={2000}
-                                onChange={(event) =>
-                                    form.setData('notes', event.target.value)
-                                }
-                                value={form.data.notes}
-                            />
-                        </Field>
-                        <DialogFooter>
-                            <Button disabled={form.processing} type="submit">
-                                {form.processing
-                                    ? 'Guardando...'
-                                    : 'Guardar borrador'}
-                            </Button>
-                        </DialogFooter>
-                    </form>
-                </DialogContent>
-            </Dialog>
+                            <Field
+                                error={form.errors.notes}
+                                label="Notas (opcional)"
+                            >
+                                <textarea
+                                    className="min-h-20 rounded-md border border-input bg-transparent px-3 py-2 text-sm"
+                                    maxLength={2000}
+                                    onChange={(event) =>
+                                        form.setData(
+                                            'notes',
+                                            event.target.value,
+                                        )
+                                    }
+                                    value={form.data.notes}
+                                />
+                            </Field>
+                            <DialogFooter>
+                                <Button
+                                    disabled={form.processing}
+                                    type="submit"
+                                >
+                                    {form.processing
+                                        ? 'Guardando...'
+                                        : 'Guardar borrador'}
+                                </Button>
+                            </DialogFooter>
+                        </form>
+                    </DialogContent>
+                </Dialog>
+            )}
         </>
     );
 }

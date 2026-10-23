@@ -1,8 +1,15 @@
 <?php
 
+use App\Enums\UserRole;
+use App\Mail\DeletionApprovalRequestMail;
+use App\Mail\ManagementActivityMail;
 use App\Models\Client;
+use App\Models\DeletionRequest;
 use App\Models\Project;
 use App\Models\User;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 
 test('guests cannot access client management', function () {
     $this->get(route('management.clientes.index'))
@@ -13,6 +20,9 @@ test('guests cannot access client management', function () {
 });
 
 test('authenticated users can create, view, search and update clients', function () {
+    Mail::fake();
+    config(['mail.activity_recipient' => 'notifications@example.com']);
+
     $user = User::factory()->create();
     $this->actingAs($user);
 
@@ -55,6 +65,14 @@ test('authenticated users can create, view, search and update clients', function
         'name' => 'María C. Cortés',
         'status' => 'inactive',
     ]);
+
+    Mail::assertSent(ManagementActivityMail::class, fn (ManagementActivityMail $mail): bool => $mail->hasTo('notifications@example.com')
+        && $mail->action === 'Creación de'
+        && $mail->entityName === 'María Cortés');
+
+    Mail::assertSent(ManagementActivityMail::class, fn (ManagementActivityMail $mail): bool => $mail->hasTo('notifications@example.com')
+        && $mail->action === 'Actualización de'
+        && $mail->entityName === 'María C. Cortés');
 });
 
 test('client search accepts only a string of up to 255 characters', function () {
@@ -79,6 +97,9 @@ test('client emails must be unique and required fields must be valid', function 
 });
 
 test('clients with projects cannot be deleted', function () {
+    Mail::fake();
+    config(['mail.activity_recipient' => 'notifications@example.com']);
+
     $this->actingAs(User::factory()->create());
     $client = Client::query()->create([
         'name' => 'Cliente con proyecto',
@@ -94,17 +115,123 @@ test('clients with projects cannot be deleted', function () {
         ->assertSessionHasErrors('delete');
 
     $this->assertDatabaseHas('clients', ['id' => $client->id]);
+    Mail::assertNothingSent();
 });
 
-test('clients without projects can be deleted', function () {
-    $this->actingAs(User::factory()->create());
+test('clients without dependencies require an admin deletion approval', function () {
+    Mail::fake();
+    config(['app.admin_email' => 'notifications@example.com']);
+
+    $manager = User::factory()->create();
     $client = Client::query()->create([
         'name' => 'Cliente eliminable',
         'status' => 'active',
     ]);
 
+    $this->actingAs($manager)
+        ->delete(route('management.clientes.destroy', $client))
+        ->assertRedirect(route('management.clientes.index'));
+
+    $this->assertDatabaseHas('clients', ['id' => $client->id]);
+    $deletionRequest = DeletionRequest::query()
+        ->where('entity_type', 'client')
+        ->where('entity_id', $client->id)
+        ->firstOrFail();
+
+    expect($deletionRequest->status)->toBe('pending');
+    Mail::assertSent(DeletionApprovalRequestMail::class, fn (DeletionApprovalRequestMail $mail): bool => $mail->hasTo('notifications@example.com')
+        && $mail->entityName === 'Cliente eliminable'
+        && $mail->requesterName === $manager->name);
+
+    $admin = User::factory()->create(['role' => UserRole::Admin]);
+    $this->actingAs($admin)
+        ->post(route('management.solicitudes-eliminacion.aprobar', $deletionRequest))
+        ->assertRedirect();
+
+    $this->assertDatabaseMissing('clients', ['id' => $client->id]);
+    $this->assertDatabaseHas('deletion_requests', [
+        'id' => $deletionRequest->id,
+        'status' => 'approved',
+        'reviewed_by' => $admin->id,
+    ]);
+});
+
+test('duplicate deletion requests send one email and an admin can reject the request', function () {
+    Mail::fake();
+    config(['app.admin_email' => 'admin@example.com']);
+
+    $manager = User::factory()->create();
+    $client = Client::query()->create([
+        'name' => 'Cliente conserva',
+        'status' => 'active',
+    ]);
+
+    $this->actingAs($manager)
+        ->delete(route('management.clientes.destroy', $client))
+        ->assertRedirect(route('management.clientes.index'));
     $this->delete(route('management.clientes.destroy', $client))
         ->assertRedirect(route('management.clientes.index'));
 
-    $this->assertDatabaseMissing('clients', ['id' => $client->id]);
+    $deletionRequest = DeletionRequest::query()->firstOrFail();
+    $this->assertDatabaseCount('deletion_requests', 1);
+    Mail::assertSentTimes(DeletionApprovalRequestMail::class, 1);
+
+    $admin = User::factory()->create(['role' => UserRole::Admin]);
+    $this->actingAs($admin)
+        ->post(route('management.solicitudes-eliminacion.rechazar', $deletionRequest))
+        ->assertRedirect();
+
+    $this->assertDatabaseHas('clients', ['id' => $client->id]);
+    $this->assertDatabaseHas('deletion_requests', [
+        'id' => $deletionRequest->id,
+        'status' => 'rejected',
+        'reviewed_by' => $admin->id,
+    ]);
+});
+
+test('client logos are processed, replaced and served from private storage', function () {
+    Storage::fake('local');
+    $this->actingAs(User::factory()->create());
+
+    $this->post(route('management.clientes.store'), [
+        'name' => 'Cliente con logotipo',
+        'status' => 'active',
+        'logo' => UploadedFile::fake()->image('logo.png', 120, 80),
+    ])->assertRedirect(route('management.clientes.index'));
+
+    $client = Client::query()->where('name', 'Cliente con logotipo')->firstOrFail();
+    $oldLogoPath = $client->logo_path;
+
+    expect(pathinfo($oldLogoPath, PATHINFO_EXTENSION))->toBe('webp');
+    Storage::disk('local')->assertExists($oldLogoPath);
+
+    $this->post(route('management.clientes.update', $client), [
+        '_method' => 'put',
+        'name' => $client->name,
+        'status' => 'active',
+        'logo' => UploadedFile::fake()->image('new-logo.png', 200, 100),
+    ])->assertRedirect(route('management.clientes.index'));
+
+    $newLogoPath = $client->fresh()->logo_path;
+
+    expect($newLogoPath)->not->toBe($oldLogoPath);
+    Storage::disk('local')->assertMissing($oldLogoPath);
+    Storage::disk('local')->assertExists($newLogoPath);
+
+    $this->get(route('management.clientes.logo', $client))
+        ->assertOk()
+        ->assertHeader('Content-Type', 'image/webp');
+});
+
+test('client logo uploads reject non-image files', function () {
+    Storage::fake('local');
+    $this->actingAs(User::factory()->create());
+
+    $this->post(route('management.clientes.store'), [
+        'name' => 'Cliente sin archivo válido',
+        'status' => 'active',
+        'logo' => UploadedFile::fake()->create('not-an-image.txt', 10, 'text/plain'),
+    ])->assertSessionHasErrors('logo');
+
+    $this->assertDatabaseMissing('clients', ['name' => 'Cliente sin archivo válido']);
 });

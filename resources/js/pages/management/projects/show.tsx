@@ -1,4 +1,4 @@
-import { Head, Link, router, useForm } from '@inertiajs/react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import {
     ArrowDownToLine,
     ArrowLeft,
@@ -17,6 +17,7 @@ import {
     download as downloadProjectFile,
     store as storeProjectFile,
 } from '@/routes/management/proyectos/archivos';
+import type { Auth } from '@/types/auth';
 
 type Project = {
     id: number;
@@ -68,6 +69,8 @@ export default function ProjectShow({
     project: Project;
     files: ProjectFile[];
 }) {
+    const { auth } = usePage<{ auth: Auth }>().props;
+    const canManage = auth.user.role !== 'viewer';
     const fileInput = useRef<HTMLInputElement>(null);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const uploadForm = useForm<{ file: File | null }>({ file: null });
@@ -165,59 +168,62 @@ export default function ProjectShow({
                                 se descargan desde una sesión iniciada.
                             </p>
                         </div>
-                        <form
-                            className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-start"
-                            onSubmit={upload}
-                        >
-                            <div className="grid gap-1.5">
-                                <input
-                                    accept={acceptedFileTypes}
-                                    aria-describedby="project-file-help project-file-error"
-                                    aria-invalid={Boolean(
-                                        uploadForm.errors.file,
-                                    )}
-                                    className="block min-h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm text-slate-700 file:mr-3 file:rounded file:border-0 file:bg-slate-100 file:px-3 file:py-1.5 file:font-medium dark:text-slate-200 dark:file:bg-slate-800"
-                                    name="file"
-                                    ref={fileInput}
-                                    onChange={(event) => {
-                                        const file =
-                                            event.currentTarget.files?.[0] ??
-                                            null;
-                                        setSelectedFile(file);
-                                        uploadForm.setData('file', file);
-                                        uploadForm.clearErrors('file');
-                                    }}
-                                    type="file"
-                                />
-                                <p
-                                    className="text-xs text-slate-500 dark:text-slate-400"
-                                    id="project-file-help"
-                                >
-                                    PDF, Word, Excel, CSV, PNG, JPG, WebP o TXT.
-                                </p>
-                                {uploadForm.errors.file && (
-                                    <p
-                                        className="text-sm text-rose-600"
-                                        id="project-file-error"
-                                        role="alert"
-                                    >
-                                        {uploadForm.errors.file}
-                                    </p>
-                                )}
-                            </div>
-                            <Button
-                                disabled={
-                                    !selectedFile || uploadForm.processing
-                                }
-                                type="submit"
+                        {canManage && (
+                            <form
+                                className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-start"
+                                onSubmit={upload}
                             >
-                                <Upload className="size-4" />
-                                {uploadForm.processing
-                                    ? 'Subiendo...'
-                                    : 'Subir archivo'}
-                            </Button>
-                        </form>
-                        {uploadForm.progress && (
+                                <div className="grid gap-1.5">
+                                    <input
+                                        accept={acceptedFileTypes}
+                                        aria-describedby="project-file-help project-file-error"
+                                        aria-invalid={Boolean(
+                                            uploadForm.errors.file,
+                                        )}
+                                        className="block min-h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm text-slate-700 file:mr-3 file:rounded file:border-0 file:bg-slate-100 file:px-3 file:py-1.5 file:font-medium dark:text-slate-200 dark:file:bg-slate-800"
+                                        name="file"
+                                        ref={fileInput}
+                                        onChange={(event) => {
+                                            const file =
+                                                event.currentTarget
+                                                    .files?.[0] ?? null;
+                                            setSelectedFile(file);
+                                            uploadForm.setData('file', file);
+                                            uploadForm.clearErrors('file');
+                                        }}
+                                        type="file"
+                                    />
+                                    <p
+                                        className="text-xs text-slate-500 dark:text-slate-400"
+                                        id="project-file-help"
+                                    >
+                                        PDF, Word, Excel, CSV, PNG, JPG, WebP o
+                                        TXT.
+                                    </p>
+                                    {uploadForm.errors.file && (
+                                        <p
+                                            className="text-sm text-rose-600"
+                                            id="project-file-error"
+                                            role="alert"
+                                        >
+                                            {uploadForm.errors.file}
+                                        </p>
+                                    )}
+                                </div>
+                                <Button
+                                    disabled={
+                                        !selectedFile || uploadForm.processing
+                                    }
+                                    type="submit"
+                                >
+                                    <Upload className="size-4" />
+                                    {uploadForm.processing
+                                        ? 'Subiendo...'
+                                        : 'Subir archivo'}
+                                </Button>
+                            </form>
+                        )}
+                        {canManage && uploadForm.progress && (
                             <progress
                                 aria-label="Progreso de carga"
                                 className="h-2 w-full accent-sky-600"
@@ -262,32 +268,34 @@ export default function ProjectShow({
                                                     Descargar
                                                 </a>
                                             </Button>
-                                            <Button
-                                                aria-label={`Eliminar ${file.name}`}
-                                                onClick={() => {
-                                                    if (
-                                                        window.confirm(
-                                                            `¿Eliminar "${file.name}"?`,
-                                                        )
-                                                    ) {
-                                                        router.delete(
-                                                            destroyProjectFile.url(
-                                                                {
-                                                                    proyecto:
-                                                                        project.id,
-                                                                    archivo:
-                                                                        file.id,
-                                                                },
-                                                            ),
-                                                        );
-                                                    }
-                                                }}
-                                                type="button"
-                                                variant="ghost"
-                                            >
-                                                <Trash2 className="size-4 text-rose-600" />
-                                                Eliminar
-                                            </Button>
+                                            {canManage && (
+                                                <Button
+                                                    aria-label={`Eliminar ${file.name}`}
+                                                    onClick={() => {
+                                                        if (
+                                                            window.confirm(
+                                                                `¿Eliminar "${file.name}"?`,
+                                                            )
+                                                        ) {
+                                                            router.delete(
+                                                                destroyProjectFile.url(
+                                                                    {
+                                                                        proyecto:
+                                                                            project.id,
+                                                                        archivo:
+                                                                            file.id,
+                                                                    },
+                                                                ),
+                                                            );
+                                                        }
+                                                    }}
+                                                    type="button"
+                                                    variant="ghost"
+                                                >
+                                                    <Trash2 className="size-4 text-rose-600" />
+                                                    Eliminar
+                                                </Button>
+                                            )}
                                         </div>
                                     </li>
                                 ))}

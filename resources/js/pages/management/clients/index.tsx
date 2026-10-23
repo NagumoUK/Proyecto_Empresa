@@ -1,4 +1,4 @@
-import { Head, Link, router, useForm } from '@inertiajs/react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import {
     Building2,
     Mail,
@@ -9,7 +9,7 @@ import {
     Trash2,
     Users,
 } from 'lucide-react';
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -21,6 +21,14 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { dashboard } from '@/routes';
+import type { Auth } from '@/types/auth';
+import {
+    destroy as destroyClient,
+    index as clientsIndex,
+    show as showClient,
+    store as storeClient,
+    update as updateClient,
+} from '@/routes/management/clientes';
 
 type Client = {
     id: number;
@@ -29,6 +37,7 @@ type Client = {
     email: string | null;
     phone: string | null;
     address: string | null;
+    logo_url: string | null;
     status: 'active' | 'inactive';
     projects_count: number;
 };
@@ -58,6 +67,7 @@ type ClientForm = {
     phone: string;
     address: string;
     status: 'active' | 'inactive';
+    logo: File | null;
 };
 
 const emptyClient: ClientForm = {
@@ -67,6 +77,7 @@ const emptyClient: ClientForm = {
     phone: '',
     address: '',
     status: 'active',
+    logo: null,
 };
 
 function Field({
@@ -92,17 +103,23 @@ function Field({
 }
 
 export default function ClientsIndex({ clients, stats, filters }: PageProps) {
+    const { auth } = usePage<{ auth: Auth }>().props;
+    const canManage = auth.user.role !== 'viewer';
     const [search, setSearch] = useState(filters.search);
     const [dialogOpen, setDialogOpen] = useState(false);
     const [editingClient, setEditingClient] = useState<Client | null>(null);
     const [deletingClient, setDeletingClient] = useState<Client | null>(null);
     const [deleteError, setDeleteError] = useState('');
     const form = useForm<ClientForm>(emptyClient);
+    const logoInput = useRef<HTMLInputElement>(null);
 
     function openCreateDialog() {
         setEditingClient(null);
         form.setData(emptyClient);
         form.clearErrors();
+        if (logoInput.current) {
+            logoInput.current.value = '';
+        }
         setDialogOpen(true);
     }
 
@@ -115,32 +132,42 @@ export default function ClientsIndex({ clients, stats, filters }: PageProps) {
             phone: client.phone ?? '',
             address: client.address ?? '',
             status: client.status,
+            logo: null,
         });
         form.clearErrors();
+        if (logoInput.current) {
+            logoInput.current.value = '';
+        }
         setDialogOpen(true);
     }
 
     function submitClient(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
         const options = {
+            forceFormData: true,
             preserveScroll: true,
             onSuccess: () => {
                 setDialogOpen(false);
                 form.reset();
+                if (logoInput.current) {
+                    logoInput.current.value = '';
+                }
             },
         };
 
         if (editingClient) {
-            form.put(`/management/clientes/${editingClient.id}`, options);
+            form.transform((data) => ({ ...data, _method: 'put' }));
+            form.post(updateClient.url(editingClient.id), options);
         } else {
-            form.post('/management/clientes', options);
+            form.transform((data) => data);
+            form.post(storeClient.url(), options);
         }
     }
 
     function submitSearch(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
         router.get(
-            '/management/clientes',
+            clientsIndex.url(),
             { search },
             { preserveState: true, preserveScroll: true, replace: true },
         );
@@ -150,7 +177,7 @@ export default function ClientsIndex({ clients, stats, filters }: PageProps) {
         if (!deletingClient) return;
 
         setDeleteError('');
-        router.delete(`/management/clientes/${deletingClient.id}`, {
+        router.delete(destroyClient.url(deletingClient.id), {
             preserveScroll: true,
             onSuccess: () => setDeletingClient(null),
             onError: (errors) =>
@@ -178,9 +205,11 @@ export default function ClientsIndex({ clients, stats, filters }: PageProps) {
                                 tus proyectos.
                             </p>
                         </div>
-                        <Button onClick={openCreateDialog}>
-                            <Plus className="size-4" /> Nuevo cliente
-                        </Button>
+                        {canManage && (
+                            <Button onClick={openCreateDialog}>
+                                <Plus className="size-4" /> Nuevo cliente
+                            </Button>
+                        )}
                     </div>
 
                     <div className="grid gap-4 sm:grid-cols-2">
@@ -278,15 +307,28 @@ export default function ClientsIndex({ clients, stats, filters }: PageProps) {
                                         >
                                             <td className="px-5 py-4">
                                                 <Link
-                                                    href={`/management/clientes/${client.id}`}
+                                                    href={showClient.url(
+                                                        client.id,
+                                                    )}
                                                     className="font-semibold text-slate-900 hover:text-sky-700 dark:text-white dark:hover:text-sky-300"
                                                 >
                                                     {client.name}
                                                 </Link>
-                                                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                                                    {client.company ||
-                                                        'Empresa no especificada'}
-                                                </p>
+                                                <div className="mt-1 flex items-center gap-2">
+                                                    {client.logo_url && (
+                                                        <img
+                                                            src={
+                                                                client.logo_url
+                                                            }
+                                                            alt={`Logotipo de ${client.name}`}
+                                                            className="size-8 rounded border border-slate-200 bg-white object-contain p-0.5 dark:border-slate-700"
+                                                        />
+                                                    )}
+                                                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                                                        {client.company ||
+                                                            'Empresa no especificada'}
+                                                    </p>
+                                                </div>
                                             </td>
                                             <td className="px-5 py-4">
                                                 <p className="flex items-center gap-2 text-slate-700 dark:text-slate-200">
@@ -313,35 +355,43 @@ export default function ClientsIndex({ clients, stats, filters }: PageProps) {
                                             </td>
                                             <td className="px-5 py-4">
                                                 <div className="flex justify-end gap-1">
-                                                    <Button
-                                                        aria-label={`Editar ${client.name}`}
-                                                        onClick={() =>
-                                                            openEditDialog(
-                                                                client,
-                                                            )
-                                                        }
-                                                        size="icon"
-                                                        variant="ghost"
-                                                    >
-                                                        <Pencil className="size-4" />
-                                                    </Button>
-                                                    <Button
-                                                        aria-label={`Eliminar ${client.name}`}
-                                                        onClick={() => {
-                                                            setDeletingClient(
-                                                                client,
-                                                            );
-                                                            setDeleteError('');
-                                                        }}
-                                                        size="icon"
-                                                        variant="ghost"
-                                                    >
-                                                        <Trash2 className="size-4 text-rose-600" />
-                                                    </Button>
+                                                    {canManage && (
+                                                        <>
+                                                            <Button
+                                                                aria-label={`Editar ${client.name}`}
+                                                                onClick={() =>
+                                                                    openEditDialog(
+                                                                        client,
+                                                                    )
+                                                                }
+                                                                size="icon"
+                                                                variant="ghost"
+                                                            >
+                                                                <Pencil className="size-4" />
+                                                            </Button>
+                                                            <Button
+                                                                aria-label={`Solicitar eliminación de ${client.name}`}
+                                                                onClick={() => {
+                                                                    setDeletingClient(
+                                                                        client,
+                                                                    );
+                                                                    setDeleteError(
+                                                                        '',
+                                                                    );
+                                                                }}
+                                                                size="icon"
+                                                                variant="ghost"
+                                                            >
+                                                                <Trash2 className="size-4 text-rose-600" />
+                                                            </Button>
+                                                        </>
+                                                    )}
                                                     <Link
                                                         aria-label={`Ver ${client.name}`}
                                                         className="inline-flex size-9 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
-                                                        href={`/management/clientes/${client.id}`}
+                                                        href={showClient.url(
+                                                            client.id,
+                                                        )}
                                                     >
                                                         <MoreHorizontal className="size-4" />
                                                     </Link>
@@ -394,140 +444,196 @@ export default function ClientsIndex({ clients, stats, filters }: PageProps) {
                 </div>
             </div>
 
-            <Dialog onOpenChange={setDialogOpen} open={dialogOpen}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>
-                            {editingClient ? 'Editar cliente' : 'Nuevo cliente'}
-                        </DialogTitle>
-                        <DialogDescription>
-                            Guarda los datos de contacto y estado del cliente.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <form className="grid gap-4" onSubmit={submitClient}>
-                        <Field
-                            error={form.errors.name}
-                            label="Nombre de contacto"
+            {canManage && (
+                <Dialog onOpenChange={setDialogOpen} open={dialogOpen}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>
+                                {editingClient
+                                    ? 'Editar cliente'
+                                    : 'Nuevo cliente'}
+                            </DialogTitle>
+                            <DialogDescription>
+                                Guarda los datos de contacto y estado del
+                                cliente.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <form
+                            className="grid gap-4"
+                            onSubmit={submitClient}
+                            encType="multipart/form-data"
                         >
-                            <Input
-                                autoFocus
-                                maxLength={150}
-                                onChange={(event) =>
-                                    form.setData('name', event.target.value)
-                                }
-                                value={form.data.name}
-                            />
-                        </Field>
-                        <Field error={form.errors.company} label="Empresa">
-                            <Input
-                                maxLength={180}
-                                onChange={(event) =>
-                                    form.setData('company', event.target.value)
-                                }
-                                value={form.data.company}
-                            />
-                        </Field>
-                        <div className="grid gap-4 sm:grid-cols-2">
                             <Field
-                                error={form.errors.email}
-                                label="Correo electrónico"
+                                error={form.errors.name}
+                                label="Nombre de contacto"
+                            >
+                                <Input
+                                    autoFocus
+                                    maxLength={150}
+                                    onChange={(event) =>
+                                        form.setData('name', event.target.value)
+                                    }
+                                    value={form.data.name}
+                                />
+                            </Field>
+                            <Field error={form.errors.company} label="Empresa">
+                                <Input
+                                    maxLength={180}
+                                    onChange={(event) =>
+                                        form.setData(
+                                            'company',
+                                            event.target.value,
+                                        )
+                                    }
+                                    value={form.data.company}
+                                />
+                            </Field>
+                            <div className="grid gap-4 sm:grid-cols-2">
+                                <Field
+                                    error={form.errors.email}
+                                    label="Correo electrónico"
+                                >
+                                    <Input
+                                        maxLength={255}
+                                        onChange={(event) =>
+                                            form.setData(
+                                                'email',
+                                                event.target.value,
+                                            )
+                                        }
+                                        type="email"
+                                        value={form.data.email}
+                                    />
+                                </Field>
+                                <Field
+                                    error={form.errors.phone}
+                                    label="Teléfono"
+                                >
+                                    <Input
+                                        maxLength={30}
+                                        onChange={(event) =>
+                                            form.setData(
+                                                'phone',
+                                                event.target.value,
+                                            )
+                                        }
+                                        value={form.data.phone}
+                                    />
+                                </Field>
+                            </div>
+                            <Field
+                                error={form.errors.address}
+                                label="Dirección"
                             >
                                 <Input
                                     maxLength={255}
                                     onChange={(event) =>
                                         form.setData(
-                                            'email',
+                                            'address',
                                             event.target.value,
                                         )
                                     }
-                                    type="email"
-                                    value={form.data.email}
+                                    value={form.data.address}
                                 />
                             </Field>
-                            <Field error={form.errors.phone} label="Teléfono">
+                            <Field
+                                error={form.errors.logo}
+                                label="Logotipo del cliente"
+                            >
+                                {editingClient?.logo_url && (
+                                    <img
+                                        src={editingClient.logo_url}
+                                        alt={`Logotipo actual de ${editingClient.name}`}
+                                        className="size-16 rounded border border-slate-200 bg-white object-contain p-1 dark:border-slate-700"
+                                    />
+                                )}
                                 <Input
-                                    maxLength={30}
+                                    ref={logoInput}
+                                    accept="image/jpeg,image/png,image/webp"
                                     onChange={(event) =>
                                         form.setData(
-                                            'phone',
-                                            event.target.value,
+                                            'logo',
+                                            event.target.files?.[0] ?? null,
                                         )
                                     }
-                                    value={form.data.phone}
+                                    type="file"
                                 />
+                                <span className="text-xs font-normal text-slate-500 dark:text-slate-400">
+                                    JPG, PNG o WebP; máximo 4 MB.
+                                </span>
                             </Field>
-                        </div>
-                        <Field error={form.errors.address} label="Dirección">
-                            <Input
-                                maxLength={255}
-                                onChange={(event) =>
-                                    form.setData('address', event.target.value)
-                                }
-                                value={form.data.address}
-                            />
-                        </Field>
-                        <Field error={form.errors.status} label="Estado">
-                            <select
-                                className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
-                                onChange={(event) =>
-                                    form.setData(
-                                        'status',
-                                        event.target
-                                            .value as ClientForm['status'],
-                                    )
-                                }
-                                value={form.data.status}
-                            >
-                                <option value="active">Activo</option>
-                                <option value="inactive">Inactivo</option>
-                            </select>
-                        </Field>
+                            <Field error={form.errors.status} label="Estado">
+                                <select
+                                    className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                                    onChange={(event) =>
+                                        form.setData(
+                                            'status',
+                                            event.target
+                                                .value as ClientForm['status'],
+                                        )
+                                    }
+                                    value={form.data.status}
+                                >
+                                    <option value="active">Activo</option>
+                                    <option value="inactive">Inactivo</option>
+                                </select>
+                            </Field>
+                            <DialogFooter>
+                                <Button
+                                    disabled={form.processing}
+                                    type="submit"
+                                >
+                                    {form.processing
+                                        ? 'Guardando...'
+                                        : 'Guardar cliente'}
+                                </Button>
+                            </DialogFooter>
+                        </form>
+                    </DialogContent>
+                </Dialog>
+            )}
+
+            {canManage && (
+                <Dialog
+                    onOpenChange={(open) => {
+                        if (!open) {
+                            setDeletingClient(null);
+                            setDeleteError('');
+                        }
+                    }}
+                    open={deletingClient !== null}
+                >
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Eliminar cliente</DialogTitle>
+                            <DialogDescription>
+                                ¿Seguro que deseas eliminar a{' '}
+                                {deletingClient?.name}? Esta acción no se puede
+                                deshacer.
+                            </DialogDescription>
+                        </DialogHeader>
+                        {deleteError && (
+                            <p role="alert" className="text-sm text-rose-600">
+                                {deleteError}
+                            </p>
+                        )}
                         <DialogFooter>
-                            <Button disabled={form.processing} type="submit">
-                                {form.processing
-                                    ? 'Guardando...'
-                                    : 'Guardar cliente'}
+                            <Button
+                                onClick={() => setDeletingClient(null)}
+                                variant="outline"
+                            >
+                                Cancelar
+                            </Button>
+                            <Button
+                                onClick={deleteClient}
+                                variant="destructive"
+                            >
+                                Eliminar cliente
                             </Button>
                         </DialogFooter>
-                    </form>
-                </DialogContent>
-            </Dialog>
-
-            <Dialog
-                onOpenChange={(open) => {
-                    if (!open) {
-                        setDeletingClient(null);
-                        setDeleteError('');
-                    }
-                }}
-                open={deletingClient !== null}
-            >
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Eliminar cliente</DialogTitle>
-                        <DialogDescription>
-                            ¿Seguro que deseas eliminar a {deletingClient?.name}
-                            ? Esta acción no se puede deshacer.
-                        </DialogDescription>
-                    </DialogHeader>
-                    {deleteError && (
-                        <p role="alert" className="text-sm text-rose-600">
-                            {deleteError}
-                        </p>
-                    )}
-                    <DialogFooter>
-                        <Button
-                            onClick={() => setDeletingClient(null)}
-                            variant="outline"
-                        >
-                            Cancelar
-                        </Button>
-                        <Button onClick={deleteClient} variant="destructive">
-                            Eliminar cliente
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+                    </DialogContent>
+                </Dialog>
+            )}
         </>
     );
 }
@@ -535,6 +641,6 @@ export default function ClientsIndex({ clients, stats, filters }: PageProps) {
 ClientsIndex.layout = {
     breadcrumbs: [
         { title: 'Dashboard', href: dashboard() },
-        { title: 'Clientes', href: '/management/clientes' },
+        { title: 'Clientes', href: clientsIndex() },
     ],
 };

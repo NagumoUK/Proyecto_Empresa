@@ -8,6 +8,8 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { dashboard } from '@/routes';
+import { index as clientsIndex } from '@/routes/management/clientes';
+import { show as showProject } from '@/routes/management/proyectos';
 
 type ProjectSummary = {
     id: number;
@@ -22,6 +24,7 @@ type Client = {
     email: string | null;
     phone: string | null;
     address: string | null;
+    logo_url: string | null;
     status: 'active' | 'inactive';
     projects_count: number;
 };
@@ -39,7 +42,7 @@ export default function ClientShow({
             <main className="min-h-[calc(100vh-4rem)] bg-slate-50/80 px-4 py-6 sm:px-6 lg:px-8 dark:bg-slate-950/40">
                 <div className="mx-auto max-w-4xl space-y-6">
                     <Button asChild variant="ghost">
-                        <Link href="/management/clientes">
+                        <Link href={clientsIndex()}>
                             <ArrowLeft className="size-4" /> Volver a clientes
                         </Link>
                     </Button>
@@ -64,6 +67,13 @@ export default function ClientShow({
                                     ? 'Activo'
                                     : 'Inactivo'}
                             </span>
+                            {client.logo_url && (
+                                <img
+                                    src={client.logo_url}
+                                    alt={`Logotipo de ${client.name}`}
+                                    className="size-20 rounded-lg border border-slate-200 bg-white object-contain p-2 dark:border-slate-700"
+                                />
+                            )}
                         </div>
                         <div className="mt-8 grid gap-5 border-t border-slate-100 pt-6 sm:grid-cols-2 dark:border-slate-800">
                             <p className="flex items-center gap-3 text-sm text-slate-700 dark:text-slate-200">
@@ -102,7 +112,7 @@ export default function ClientShow({
                                     >
                                         <Link
                                             className="font-medium text-sky-700 hover:underline dark:text-sky-300"
-                                            href={`/management/proyectos/${project.id}`}
+                                            href={showProject.url(project.id)}
                                         >
                                             {project.name}
                                         </Link>
@@ -127,7 +137,7 @@ export default function ClientShow({
 ClientShow.layout = {
     breadcrumbs: [
         { title: 'Dashboard', href: dashboard() },
-        { title: 'Clientes', href: '/management/clientes' },
-        { title: 'Detalle', href: '/management/clientes' },
+        { title: 'Clientes', href: clientsIndex() },
+        { title: 'Detalle', href: clientsIndex() },
     ],
 };

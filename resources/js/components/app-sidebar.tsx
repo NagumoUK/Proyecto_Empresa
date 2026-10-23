@@ -1,10 +1,12 @@
-import { Link } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import {
     BookOpen,
     BriefcaseBusiness,
+    ClipboardCheck,
     FileText,
     FolderGit2,
     LayoutGrid,
+    Shield,
     Users,
 } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
@@ -21,45 +23,71 @@ import {
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { dashboard } from '@/routes';
+import { index as clientsIndex } from '@/routes/management/clientes';
+import { index as projectsIndex } from '@/routes/management/proyectos';
+import { index as documentsIndex } from '@/routes/management/documentos';
+import { index as usersIndex } from '@/routes/management/usuarios';
+import { index as deletionRequestsIndex } from '@/routes/management/solicitudes-eliminacion';
 import type { NavItem } from '@/types';
+import type { Auth } from '@/types/auth';
+
+type PageProps = { auth: Auth };
 
 const mainNavItems: NavItem[] = [
     {
-        title: 'Dashboard',
+        title: 'Inicio',
         href: dashboard(),
         icon: LayoutGrid,
     },
     {
         title: 'Clientes',
-        href: '/management/clientes',
+        href: clientsIndex(),
         icon: Users,
     },
     {
         title: 'Proyectos',
-        href: '/management/proyectos',
+        href: projectsIndex(),
         icon: BriefcaseBusiness,
     },
     {
         title: 'Cotizaciones y facturas',
-        href: '/management/documentos',
+        href: documentsIndex(),
         icon: FileText,
     },
 ];
 
 const footerNavItems: NavItem[] = [
     {
-        title: 'Repository',
+        title: 'Repositorio',
         href: 'https://github.com/laravel/react-starter-kit',
         icon: FolderGit2,
     },
     {
-        title: 'Documentation',
+        title: 'Documentación',
         href: 'https://laravel.com/docs/starter-kits#react',
         icon: BookOpen,
     },
 ];
 
 export function AppSidebar() {
+    const { auth } = usePage<PageProps>().props;
+    const items =
+        auth.user.role === 'admin'
+            ? [
+                  ...mainNavItems,
+                  {
+                      title: 'Usuarios y roles',
+                      href: usersIndex(),
+                      icon: Shield,
+                  },
+                  {
+                      title: 'Solicitudes de eliminación',
+                      href: deletionRequestsIndex(),
+                      icon: ClipboardCheck,
+                  },
+              ]
+            : mainNavItems;
+
     return (
         <Sidebar collapsible="icon" variant="inset">
             <SidebarHeader>
@@ -75,7 +103,7 @@ export function AppSidebar() {
             </SidebarHeader>
 
             <SidebarContent>
-                <NavMain items={mainNavItems} />
+                <NavMain items={items} />
             </SidebarContent>
 
             <SidebarFooter>

@@ -11,6 +11,8 @@ CREATE TABLE users (
     email VARCHAR(255) NOT NULL UNIQUE,
     email_verified_at TIMESTAMP(0) WITHOUT TIME ZONE NULL,
     password VARCHAR(255) NOT NULL,
+    role VARCHAR(20) NOT NULL DEFAULT 'manager',
+    avatar_path VARCHAR(255) NULL,
     two_factor_secret TEXT NULL,
     two_factor_recovery_codes TEXT NULL,
     two_factor_confirmed_at TIMESTAMP(0) WITHOUT TIME ZONE NULL,
@@ -18,6 +20,8 @@ CREATE TABLE users (
     created_at TIMESTAMP(0) WITHOUT TIME ZONE NULL,
     updated_at TIMESTAMP(0) WITHOUT TIME ZONE NULL
 );
+
+CREATE INDEX users_role_index ON users (role);
 
 CREATE TABLE password_reset_tokens (
     email VARCHAR(255) PRIMARY KEY,
@@ -125,6 +129,7 @@ CREATE TABLE clients (
     email VARCHAR(255) NULL UNIQUE,
     phone VARCHAR(30) NULL,
     address VARCHAR(255) NULL,
+    logo_path VARCHAR(255) NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'active',
     created_at TIMESTAMP(0) WITHOUT TIME ZONE NULL,
     updated_at TIMESTAMP(0) WITHOUT TIME ZONE NULL
@@ -220,6 +225,30 @@ CREATE TABLE project_files (
 CREATE INDEX project_files_project_id_created_at_index
     ON project_files (project_id, created_at);
 
+CREATE TABLE deletion_requests (
+    id BIGSERIAL PRIMARY KEY,
+    entity_type VARCHAR(20) NOT NULL,
+    entity_id BIGINT NOT NULL,
+    entity_name VARCHAR(255) NOT NULL,
+    details JSON NOT NULL,
+    requested_by BIGINT NOT NULL,
+    requester_name VARCHAR(255) NOT NULL,
+    reviewed_by BIGINT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+    reviewed_at TIMESTAMP(0) WITHOUT TIME ZONE NULL,
+    created_at TIMESTAMP(0) WITHOUT TIME ZONE NULL,
+    updated_at TIMESTAMP(0) WITHOUT TIME ZONE NULL,
+    CONSTRAINT deletion_requests_requested_by_foreign
+        FOREIGN KEY (requested_by) REFERENCES users (id) ON DELETE RESTRICT,
+    CONSTRAINT deletion_requests_reviewed_by_foreign
+        FOREIGN KEY (reviewed_by) REFERENCES users (id) ON DELETE SET NULL
+);
+
+CREATE INDEX deletion_requests_status_created_at_index
+    ON deletion_requests (status, created_at);
+CREATE INDEX deletion_requests_entity_type_entity_id_status_index
+    ON deletion_requests (entity_type, entity_id, status);
+
 CREATE TABLE migrations (
     id SERIAL PRIMARY KEY,
     migration VARCHAR(255) NOT NULL,
@@ -238,25 +267,29 @@ INSERT INTO migrations (migration, batch) VALUES
     ('2026_10_16_164519_create_project_files_table', 2),
     ('2026_10_16_171745_create_financial_documents_table', 3),
     ('2026_10_16_171746_create_financial_document_items_table', 3),
-    ('2026_10_16_171749_add_budget_currency_to_projects_table', 3);
+    ('2026_10_16_171749_add_budget_currency_to_projects_table', 3),
+    ('2026_10_23_205902_add_image_paths_to_users_and_clients', 4),
+    ('2026_10_23_223126_add_role_to_users_table', 4),
+    ('2026_10_23_223127_create_deletion_requests_table', 4);
 
 COMMIT;
 
--- Optional initial login account. This application does not currently define
--- administrator roles, so this creates a regular user account.
+-- Optional initial administrator account.
 -- Run this block separately if the schema above has already been applied.
 INSERT INTO users (
     name,
     email,
     email_verified_at,
     password,
+    role,
     created_at,
     updated_at
 ) VALUES (
     'David',
-    'solanoalexander567@gmail.com',
+    'solanodavid587@gmail.com',
     CURRENT_TIMESTAMP,
     '$2y$12$/oQSr0Vms0DwPsjPS1MpNeEpdjUP/MwK8g/6kq1pWaUYGnKl1Tf3q',
+    'admin',
     CURRENT_TIMESTAMP,
     CURRENT_TIMESTAMP
 )
@@ -264,4 +297,5 @@ ON CONFLICT (email) DO UPDATE SET
     name = EXCLUDED.name,
     email_verified_at = EXCLUDED.email_verified_at,
     password = EXCLUDED.password,
+    role = EXCLUDED.role,
     updated_at = EXCLUDED.updated_at;

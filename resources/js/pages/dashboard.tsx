@@ -65,14 +65,17 @@ export default function Dashboard({
         const echo = window.Echo;
         const channel = echo.private('activities');
 
-        channel.listen('.activity.created', ({ activity }: ActivityBroadcast) => {
-            setActivities((current) =>
-                [
-                    activity,
-                    ...current.filter((item) => item.id !== activity.id),
-                ].slice(0, 8),
-            );
-        });
+        channel.listen(
+            '.activity.created',
+            ({ activity }: ActivityBroadcast) => {
+                setActivities((current) =>
+                    [
+                        activity,
+                        ...current.filter((item) => item.id !== activity.id),
+                    ].slice(0, 8),
+                );
+            },
+        );
 
         const updateConnectionStatus = (state: { current: string }) => {
             setConnectionStatus(state.current);
@@ -148,7 +151,7 @@ export default function Dashboard({
 
     return (
         <>
-            <Head title="Dashboard" />
+            <Head title="Inicio" />
             <div className="min-h-[calc(100vh-4rem)] bg-slate-50/80 px-4 py-6 sm:px-6 lg:px-8 dark:bg-slate-950/40">
                 <div className="mx-auto max-w-7xl space-y-6">
                     <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
@@ -438,7 +441,7 @@ export default function Dashboard({
 Dashboard.layout = {
     breadcrumbs: [
         {
-            title: 'Dashboard',
+            title: 'Inicio',
             href: dashboard(),
         },
     ],

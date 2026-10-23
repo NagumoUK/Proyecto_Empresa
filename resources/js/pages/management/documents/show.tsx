@@ -1,4 +1,4 @@
-import { Head, Link, router, useForm } from '@inertiajs/react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
 import { useMemo, type FormEvent } from 'react';
 import { Button } from '@/components/ui/button';
@@ -15,6 +15,7 @@ import {
     update as updateDocument,
 } from '@/routes/management/documentos';
 import { dashboard } from '@/routes';
+import type { Auth } from '@/types/auth';
 
 type DocumentType = 'quote' | 'invoice';
 type DocumentStatus =
@@ -104,6 +105,8 @@ export default function FinancialDocumentShow({
     clients: ClientOption[];
     projects: ProjectOption[];
 }) {
+    const { auth } = usePage<{ auth: Auth }>().props;
+    const canManage = auth.user.role !== 'viewer';
     const form = useForm({
         client_id: document.client_id.toString(),
         project_id: document.project_id?.toString() ?? '',
@@ -199,7 +202,8 @@ export default function FinancialDocumentShow({
                                     Estado: {statusLabels[document.status]}
                                 </p>
                             </div>
-                            {document.status === 'draft' &&
+                            {canManage &&
+                                document.status === 'draft' &&
                                 (document.type === 'invoice' || !invoice) && (
                                     <Button
                                         onClick={removeDraft}
@@ -344,55 +348,58 @@ export default function FinancialDocumentShow({
                             </div>
                         )}
 
-                        {(nextStatuses.length > 0 ||
-                            (document.type === 'quote' &&
-                                document.status === 'approved' &&
-                                !invoice) ||
-                            invoice !== null) && (
-                            <div className="mt-8 flex flex-wrap gap-2 border-t border-slate-100 pt-5 dark:border-slate-800">
-                                {nextStatuses.map((status) => (
-                                    <Button
-                                        key={status}
-                                        onClick={() => changeStatus(status)}
-                                        variant={
-                                            status === 'cancelled' ||
-                                            status === 'rejected'
-                                                ? 'outline'
-                                                : 'default'
-                                        }
-                                    >
-                                        {nextStatusLabels[status]}
-                                    </Button>
-                                ))}
-                                {document.type === 'quote' &&
+                        {canManage &&
+                            (nextStatuses.length > 0 ||
+                                (document.type === 'quote' &&
                                     document.status === 'approved' &&
-                                    !invoice && (
+                                    !invoice) ||
+                                invoice !== null) && (
+                                <div className="mt-8 flex flex-wrap gap-2 border-t border-slate-100 pt-5 dark:border-slate-800">
+                                    {nextStatuses.map((status) => (
                                         <Button
-                                            onClick={() =>
-                                                router.post(
-                                                    convertirAFactura.url(
-                                                        document.id,
-                                                    ),
-                                                )
+                                            key={status}
+                                            onClick={() => changeStatus(status)}
+                                            variant={
+                                                status === 'cancelled' ||
+                                                status === 'rejected'
+                                                    ? 'outline'
+                                                    : 'default'
                                             }
                                         >
-                                            Convertir a factura interna
+                                            {nextStatusLabels[status]}
+                                        </Button>
+                                    ))}
+                                    {document.type === 'quote' &&
+                                        document.status === 'approved' &&
+                                        !invoice && (
+                                            <Button
+                                                onClick={() =>
+                                                    router.post(
+                                                        convertirAFactura.url(
+                                                            document.id,
+                                                        ),
+                                                    )
+                                                }
+                                            >
+                                                Convertir a factura interna
+                                            </Button>
+                                        )}
+                                    {invoice && (
+                                        <Button asChild variant="outline">
+                                            <Link
+                                                href={showDocument.url(
+                                                    invoice.id,
+                                                )}
+                                            >
+                                                Ver factura interna
+                                            </Link>
                                         </Button>
                                     )}
-                                {invoice && (
-                                    <Button asChild variant="outline">
-                                        <Link
-                                            href={showDocument.url(invoice.id)}
-                                        >
-                                            Ver factura interna
-                                        </Link>
-                                    </Button>
-                                )}
-                            </div>
-                        )}
+                                </div>
+                            )}
                     </section>
 
-                    {document.status === 'draft' && (
+                    {canManage && document.status === 'draft' && (
                         <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8 dark:border-slate-800 dark:bg-slate-900">
                             <div className="mb-5">
                                 <h2 className="text-lg font-semibold text-slate-950 dark:text-white">

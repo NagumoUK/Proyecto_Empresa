@@ -1,9 +1,9 @@
-import { Form, Head, usePage } from '@inertiajs/react';
-import { Link } from '@inertiajs/react';
+import { Form, Head, Link, usePage } from '@inertiajs/react';
 import ProfileController from '@/actions/App/Http/Controllers/Settings/ProfileController';
 import DeleteUser from '@/components/delete-user';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -26,15 +26,15 @@ export default function Profile({
 
     return (
         <>
-            <Head title="Profile settings" />
+            <Head title="Configuración del perfil" />
 
-            <h1 className="sr-only">Profile settings</h1>
+            <h1 className="sr-only">Configuración del perfil</h1>
 
             <div className="space-y-6">
                 <Heading
                     variant="small"
-                    title="Profile"
-                    description="Update your name and email address"
+                    title="Perfil"
+                    description="Actualiza tu nombre y dirección de correo."
                 />
 
                 <Form
@@ -47,7 +47,7 @@ export default function Profile({
                     {({ processing, errors }) => (
                         <>
                             <div className="grid gap-2">
-                                <Label htmlFor="name">Name</Label>
+                                <Label htmlFor="name">Nombre</Label>
 
                                 <Input
                                     id="name"
@@ -56,7 +56,7 @@ export default function Profile({
                                     name="name"
                                     required
                                     autoComplete="name"
-                                    placeholder="Full name"
+                                    placeholder="Nombre completo"
                                 />
 
                                 <InputError
@@ -66,7 +66,9 @@ export default function Profile({
                             </div>
 
                             <div className="grid gap-2">
-                                <Label htmlFor="email">Email address</Label>
+                                <Label htmlFor="email">
+                                    Correo electrónico
+                                </Label>
 
                                 <Input
                                     id="email"
@@ -76,7 +78,7 @@ export default function Profile({
                                     name="email"
                                     required
                                     autoComplete="username"
-                                    placeholder="Email address"
+                                    placeholder="Correo electrónico"
                                 />
 
                                 <InputError
@@ -89,22 +91,23 @@ export default function Profile({
                                 auth.user.email_verified_at === null && (
                                     <div>
                                         <p className="-mt-4 text-sm text-muted-foreground">
-                                            Your email address is unverified.{' '}
+                                            Tu dirección de correo no está
+                                            verificada.{' '}
                                             <Link
                                                 href={send()}
                                                 as="button"
                                                 className="text-foreground underline decoration-neutral-300 underline-offset-4 transition-colors duration-300 ease-out hover:decoration-current! dark:decoration-neutral-500"
                                             >
-                                                Click here to re-send the
-                                                verification email.
+                                                Haz clic aquí para reenviar el
+                                                correo de verificación.
                                             </Link>
                                         </p>
 
                                         {status ===
                                             'verification-link-sent' && (
                                             <div className="mt-2 text-sm font-medium text-green-600">
-                                                A new verification link has been
-                                                sent to your email address.
+                                                Se envió un nuevo enlace de
+                                                verificación a tu correo.
                                             </div>
                                         )}
                                     </div>
@@ -115,8 +118,56 @@ export default function Profile({
                                     disabled={processing}
                                     data-test="update-profile-button"
                                 >
-                                    Save
+                                    Guardar cambios
                                 </Button>
+                            </div>
+                        </>
+                    )}
+                </Form>
+
+                <Form
+                    {...ProfileController.updateAvatar.form()}
+                    options={{ preserveScroll: true }}
+                    className="grid gap-4 rounded-lg border p-4 sm:grid-cols-[auto_1fr]"
+                >
+                    {({ processing, errors }) => (
+                        <>
+                            <Avatar className="size-16">
+                                <AvatarImage
+                                    src={auth.user.avatar ?? undefined}
+                                    alt={auth.user.name}
+                                />
+                                <AvatarFallback>
+                                    {auth.user.name
+                                        .slice(0, 1)
+                                        .toLocaleUpperCase('es-PE')}
+                                </AvatarFallback>
+                            </Avatar>
+                            <div className="grid gap-3">
+                                <div className="grid gap-1">
+                                    <Label htmlFor="avatar">
+                                        Foto de perfil
+                                    </Label>
+                                    <p className="text-sm text-muted-foreground">
+                                        Sube una imagen JPG, PNG o WebP de hasta
+                                        4 MB.
+                                    </p>
+                                </div>
+                                <Input
+                                    id="avatar"
+                                    name="avatar"
+                                    type="file"
+                                    accept="image/jpeg,image/png,image/webp"
+                                    aria-label="Seleccionar foto de perfil"
+                                />
+                                <InputError message={errors.avatar} />
+                                <div>
+                                    <Button disabled={processing}>
+                                        {processing
+                                            ? 'Subiendo…'
+                                            : 'Actualizar foto'}
+                                    </Button>
+                                </div>
                             </div>
                         </>
                     )}
@@ -131,7 +182,7 @@ export default function Profile({
 Profile.layout = {
     breadcrumbs: [
         {
-            title: 'Profile settings',
+            title: 'Configuración del perfil',
             href: edit(),
         },
     ],

@@ -120,3 +120,66 @@ ejecuta la limpieza:
 php artisan activities:prune --days=90 --pretend
 php artisan activities:prune --days=90
 ```
+
+### Desplegar en DigitalOcean con Docker y Nginx
+
+El despliegue usa Nginx para servir los archivos estáticos y enviar las
+peticiones PHP a PHP-FPM. Vite compila React durante la construcción de la
+imagen. PostgreSQL es externo: puedes conservar Supabase o usar Managed
+PostgreSQL de DigitalOcean; no se incluye una base de datos local en Compose.
+
+1. Crea un Droplet Ubuntu en DigitalOcean, apunta el registro DNS `A` de tu
+   dominio a su IP pública y configura un Cloud Firewall para permitir SSH
+   desde tu IP y tráfico TCP en los puertos `80` y `443`.
+2. Instala Docker Engine y el plugin Docker Compose en el Droplet, clona el
+   repositorio y entra en su directorio.
+3. Crea el `.env` en el servidor y configura sus valores de producción:
+
+   ```bash
+   cp .env.example .env
+   nano .env
+   ```
+
+   Usa `APP_ENV=production`, `APP_DEBUG=false` y la URL pública en `APP_URL`.
+   Completa las credenciales de PostgreSQL, `ABLY_KEY` con una clave Root,
+   SMTP y las demás variables necesarias. Si usas Managed PostgreSQL, agrega
+   el Droplet a sus trusted sources y configura `DB_SSLMODE=require`. No
+   subas `.env` al repositorio.
+
+4. Genera una clave de aplicación sin guardarla en la imagen y cópiala al
+   `APP_KEY` del `.env` del servidor:
+
+   ```bash
+   docker compose run --rm app php artisan key:generate --show
+   ```
+
+5. Construye y arranca la aplicación. Las migraciones y la caché de Laravel
+   se preparan después de que los contenedores estén arriba; el worker de cola
+   se ejecuta como servicio separado.
+
+   ```bash
+   docker compose up -d --build
+   docker compose exec app php artisan migrate --force
+   docker compose exec app php artisan optimize
+   docker compose restart app queue
+   docker compose ps
+   ```
+
+   Nginx publica la aplicación en el puerto `80`. Los adjuntos privados y los
+   logs persisten en volúmenes Docker; las notificaciones encoladas se procesan
+   mediante el servicio `queue`.
+
+6. Antes de usar credenciales en el sitio, configura HTTPS para el dominio con
+   Let's Encrypt y actualiza Nginx para servir TLS y redirigir HTTP a HTTPS. La
+   configuración incluida escucha en HTTP (`80`) y no crea certificados TLS.
+
+Para desplegar cambios posteriormente, actualiza el repositorio y repite la
+construcción, migración, optimización y reinicio:
+
+```bash
+git pull
+docker compose up -d --build
+docker compose exec app php artisan migrate --force
+docker compose exec app php artisan optimize
+docker compose restart app queue
+```

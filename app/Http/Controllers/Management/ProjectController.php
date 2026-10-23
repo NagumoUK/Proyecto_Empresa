@@ -8,7 +8,11 @@ use App\Http\Requests\Management\StoreProjectRequest;
 use App\Http\Requests\Management\UpdateProjectRequest;
 use App\Models\Client;
 use App\Models\Project;
+use App\Services\DeletionRequestService;
+use App\Services\ManagementActivityMailer;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -50,14 +54,20 @@ class ProjectController extends Controller
         ]);
     }
 
-    public function store(StoreProjectRequest $request): RedirectResponse
-    {
-        Project::query()->create($request->validated());
+    public function store(
+        StoreProjectRequest $request,
+        ManagementActivityMailer $activityMailer,
+    ): RedirectResponse {
+        $project = Project::query()->create($request->validated())->load('client');
+        $emailSent = $activityMailer->send(
+            action: 'Creación de',
+            entityType: 'proyecto',
+            entityName: $project->name,
+            actorName: $request->user()->name,
+            details: $this->projectDetails($project),
+        );
 
-        Inertia::flash('toast', [
-            'type' => 'success',
-            'message' => 'Proyecto creado correctamente.',
-        ]);
+        $this->flashActivityToast('Proyecto creado correctamente.', $emailSent);
 
         return to_route('management.proyectos.index');
     }
@@ -81,33 +91,71 @@ class ProjectController extends Controller
         ]);
     }
 
-    public function update(UpdateProjectRequest $request, Project $proyecto): RedirectResponse
-    {
+    public function update(
+        UpdateProjectRequest $request,
+        Project $proyecto,
+        ManagementActivityMailer $activityMailer,
+    ): RedirectResponse {
         $proyecto->update($request->validated());
+        $proyecto->load('client');
+
+        $emailSent = $activityMailer->send(
+            action: 'Actualización de',
+            entityType: 'proyecto',
+            entityName: $proyecto->name,
+            actorName: $request->user()->name,
+            details: $this->projectDetails($proyecto),
+        );
+
+        $this->flashActivityToast('Proyecto actualizado correctamente.', $emailSent);
+
+        return to_route('management.proyectos.index');
+    }
+
+    public function destroy(
+        Request $request,
+        Project $proyecto,
+        DeletionRequestService $deletionRequests,
+    ): RedirectResponse {
+        try {
+            $result = $deletionRequests->request($proyecto, $request->user());
+        } catch (\LogicException $exception) {
+            throw ValidationException::withMessages(['delete' => $exception->getMessage()]);
+        }
 
         Inertia::flash('toast', [
-            'type' => 'success',
-            'message' => 'Proyecto actualizado correctamente.',
+            'type' => $result['email_sent'] || ! $result['created'] ? 'success' : 'warning',
+            'message' => ! $result['created']
+                ? 'Ya existe una solicitud pendiente para este proyecto.'
+                : ($result['email_sent']
+                    ? 'Solicitud enviada al administrador para aprobar la eliminación del proyecto.'
+                    : 'La solicitud quedó registrada, pero no se pudo enviar el correo al administrador.'),
         ]);
 
         return to_route('management.proyectos.index');
     }
 
-    public function destroy(Project $proyecto): RedirectResponse
+    /**
+     * @return array<string, string>
+     */
+    private function projectDetails(Project $project): array
     {
-        if ($proyecto->financialDocuments()->exists()) {
-            return back()->withErrors([
-                'delete' => 'No puedes eliminar este proyecto porque tiene cotizaciones o facturas asociadas.',
-            ]);
-        }
+        return [
+            'Cliente' => $project->client->company ?? $project->client->name,
+            'Estado' => $project->status,
+            'Presupuesto' => $project->budget === null ? 'No definido' : "S/ {$project->budget}",
+            'Fecha de inicio' => $project->start_date?->format('d/m/Y') ?? 'No definida',
+            'Fecha de fin' => $project->end_date?->format('d/m/Y') ?? 'No definida',
+        ];
+    }
 
-        $proyecto->delete();
-
+    private function flashActivityToast(string $message, bool $emailSent): void
+    {
         Inertia::flash('toast', [
-            'type' => 'success',
-            'message' => 'Proyecto eliminado correctamente.',
+            'type' => $emailSent ? 'success' : 'warning',
+            'message' => $emailSent
+                ? "{$message} Se envió un aviso por correo."
+                : "{$message} No se pudo enviar el aviso por correo; revisa los registros.",
         ]);
-
-        return to_route('management.proyectos.index');
     }
 }

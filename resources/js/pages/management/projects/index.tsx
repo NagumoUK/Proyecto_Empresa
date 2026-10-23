@@ -1,4 +1,4 @@
-import { Head, Link, router, useForm } from '@inertiajs/react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import {
     BriefcaseBusiness,
     CalendarDays,
@@ -21,6 +21,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { formatPEN } from '@/lib/currency';
 import { dashboard } from '@/routes';
+import type { Auth } from '@/types/auth';
 
 type ProjectStatus =
     | 'planning'
@@ -130,6 +131,8 @@ export default function ProjectsIndex({
     stats,
     filters,
 }: PageProps) {
+    const { auth } = usePage<{ auth: Auth }>().props;
+    const canManage = auth.user.role !== 'viewer';
     const [search, setSearch] = useState(filters.search);
     const [statusFilter, setStatusFilter] = useState(filters.status);
     const [dialogOpen, setDialogOpen] = useState(false);
@@ -217,12 +220,14 @@ export default function ProjectsIndex({
                                 cliente.
                             </p>
                         </div>
-                        <Button
-                            disabled={clients.length === 0}
-                            onClick={openCreateDialog}
-                        >
-                            <Plus className="size-4" /> Nuevo proyecto
-                        </Button>
+                        {canManage && (
+                            <Button
+                                disabled={clients.length === 0}
+                                onClick={openCreateDialog}
+                            >
+                                <Plus className="size-4" /> Nuevo proyecto
+                            </Button>
+                        )}
                     </div>
 
                     {clients.length === 0 && (
@@ -407,30 +412,34 @@ export default function ProjectsIndex({
                                             </td>
                                             <td className="px-5 py-4">
                                                 <div className="flex justify-end gap-1">
-                                                    <Button
-                                                        aria-label={`Editar ${project.name}`}
-                                                        onClick={() =>
-                                                            openEditDialog(
-                                                                project,
-                                                            )
-                                                        }
-                                                        size="icon"
-                                                        variant="ghost"
-                                                    >
-                                                        <Pencil className="size-4" />
-                                                    </Button>
-                                                    <Button
-                                                        aria-label={`Eliminar ${project.name}`}
-                                                        onClick={() =>
-                                                            setDeletingProject(
-                                                                project,
-                                                            )
-                                                        }
-                                                        size="icon"
-                                                        variant="ghost"
-                                                    >
-                                                        <Trash2 className="size-4 text-rose-600" />
-                                                    </Button>
+                                                    {canManage && (
+                                                        <Button
+                                                            aria-label={`Editar ${project.name}`}
+                                                            onClick={() =>
+                                                                openEditDialog(
+                                                                    project,
+                                                                )
+                                                            }
+                                                            size="icon"
+                                                            variant="ghost"
+                                                        >
+                                                            <Pencil className="size-4" />
+                                                        </Button>
+                                                    )}
+                                                    {canManage && (
+                                                        <Button
+                                                            aria-label={`Solicitar eliminación de ${project.name}`}
+                                                            onClick={() =>
+                                                                setDeletingProject(
+                                                                    project,
+                                                                )
+                                                            }
+                                                            size="icon"
+                                                            variant="ghost"
+                                                        >
+                                                            <Trash2 className="size-4 text-rose-600" />
+                                                        </Button>
+                                                    )}
                                                 </div>
                                             </td>
                                         </tr>
@@ -481,176 +490,200 @@ export default function ProjectsIndex({
                 </div>
             </div>
 
-            <Dialog onOpenChange={setDialogOpen} open={dialogOpen}>
-                <DialogContent className="max-h-[90vh] overflow-y-auto">
-                    <DialogHeader>
-                        <DialogTitle>
-                            {editingProject
-                                ? 'Editar proyecto'
-                                : 'Nuevo proyecto'}
-                        </DialogTitle>
-                        <DialogDescription>
-                            Define los datos principales y asígnalo a un
-                            cliente.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <form className="grid gap-4" onSubmit={submitProject}>
-                        <Field
-                            error={form.errors.name}
-                            label="Nombre del proyecto"
-                        >
-                            <Input
-                                autoFocus
-                                maxLength={180}
-                                onChange={(event) =>
-                                    form.setData('name', event.target.value)
-                                }
-                                value={form.data.name}
-                            />
-                        </Field>
-                        <Field error={form.errors.client_id} label="Cliente">
-                            <select
-                                className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
-                                onChange={(event) =>
-                                    form.setData(
-                                        'client_id',
-                                        event.target.value,
-                                    )
-                                }
-                                value={form.data.client_id}
+            {canManage && (
+                <Dialog onOpenChange={setDialogOpen} open={dialogOpen}>
+                    <DialogContent className="max-h-[90vh] overflow-y-auto">
+                        <DialogHeader>
+                            <DialogTitle>
+                                {editingProject
+                                    ? 'Editar proyecto'
+                                    : 'Nuevo proyecto'}
+                            </DialogTitle>
+                            <DialogDescription>
+                                Define los datos principales y asígnalo a un
+                                cliente.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <form className="grid gap-4" onSubmit={submitProject}>
+                            <Field
+                                error={form.errors.name}
+                                label="Nombre del proyecto"
                             >
-                                {clients.map((client) => (
-                                    <option key={client.id} value={client.id}>
-                                        {client.company || client.name}
-                                    </option>
-                                ))}
-                            </select>
-                        </Field>
-                        <Field
-                            error={form.errors.description}
-                            label="Descripción"
-                        >
-                            <textarea
-                                className="min-h-24 rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-sky-500"
-                                maxLength={5000}
-                                onChange={(event) =>
-                                    form.setData(
-                                        'description',
-                                        event.target.value,
-                                    )
-                                }
-                                value={form.data.description}
-                            />
-                        </Field>
-                        <div className="grid gap-4 sm:grid-cols-2">
-                            <Field error={form.errors.status} label="Estado">
+                                <Input
+                                    autoFocus
+                                    maxLength={180}
+                                    onChange={(event) =>
+                                        form.setData('name', event.target.value)
+                                    }
+                                    value={form.data.name}
+                                />
+                            </Field>
+                            <Field
+                                error={form.errors.client_id}
+                                label="Cliente"
+                            >
                                 <select
                                     className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
                                     onChange={(event) =>
                                         form.setData(
-                                            'status',
-                                            event.target.value as ProjectStatus,
+                                            'client_id',
+                                            event.target.value,
                                         )
                                     }
-                                    value={form.data.status}
+                                    value={form.data.client_id}
                                 >
-                                    {Object.entries(statusLabels).map(
-                                        ([value, label]) => (
-                                            <option key={value} value={value}>
-                                                {label}
-                                            </option>
-                                        ),
-                                    )}
+                                    {clients.map((client) => (
+                                        <option
+                                            key={client.id}
+                                            value={client.id}
+                                        >
+                                            {client.company || client.name}
+                                        </option>
+                                    ))}
                                 </select>
                             </Field>
                             <Field
-                                error={form.errors.budget}
-                                label="Presupuesto (S/)"
+                                error={form.errors.description}
+                                label="Descripción"
                             >
-                                <Input
-                                    min="0"
+                                <textarea
+                                    className="min-h-24 rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-sky-500"
+                                    maxLength={5000}
                                     onChange={(event) =>
                                         form.setData(
-                                            'budget',
+                                            'description',
                                             event.target.value,
                                         )
                                     }
-                                    step="0.01"
-                                    type="number"
-                                    value={form.data.budget}
+                                    value={form.data.description}
                                 />
                             </Field>
-                        </div>
-                        <div className="grid gap-4 sm:grid-cols-2">
-                            <Field
-                                error={form.errors.start_date}
-                                label="Fecha de inicio"
-                            >
-                                <Input
-                                    onChange={(event) =>
-                                        form.setData(
-                                            'start_date',
-                                            event.target.value,
-                                        )
-                                    }
-                                    type="date"
-                                    value={form.data.start_date}
-                                />
-                            </Field>
-                            <Field
-                                error={form.errors.end_date}
-                                label="Fecha de entrega"
-                            >
-                                <Input
-                                    onChange={(event) =>
-                                        form.setData(
-                                            'end_date',
-                                            event.target.value,
-                                        )
-                                    }
-                                    type="date"
-                                    value={form.data.end_date}
-                                />
-                            </Field>
-                        </div>
+                            <div className="grid gap-4 sm:grid-cols-2">
+                                <Field
+                                    error={form.errors.status}
+                                    label="Estado"
+                                >
+                                    <select
+                                        className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                                        onChange={(event) =>
+                                            form.setData(
+                                                'status',
+                                                event.target
+                                                    .value as ProjectStatus,
+                                            )
+                                        }
+                                        value={form.data.status}
+                                    >
+                                        {Object.entries(statusLabels).map(
+                                            ([value, label]) => (
+                                                <option
+                                                    key={value}
+                                                    value={value}
+                                                >
+                                                    {label}
+                                                </option>
+                                            ),
+                                        )}
+                                    </select>
+                                </Field>
+                                <Field
+                                    error={form.errors.budget}
+                                    label="Presupuesto (S/)"
+                                >
+                                    <Input
+                                        min="0"
+                                        onChange={(event) =>
+                                            form.setData(
+                                                'budget',
+                                                event.target.value,
+                                            )
+                                        }
+                                        step="0.01"
+                                        type="number"
+                                        value={form.data.budget}
+                                    />
+                                </Field>
+                            </div>
+                            <div className="grid gap-4 sm:grid-cols-2">
+                                <Field
+                                    error={form.errors.start_date}
+                                    label="Fecha de inicio"
+                                >
+                                    <Input
+                                        onChange={(event) =>
+                                            form.setData(
+                                                'start_date',
+                                                event.target.value,
+                                            )
+                                        }
+                                        type="date"
+                                        value={form.data.start_date}
+                                    />
+                                </Field>
+                                <Field
+                                    error={form.errors.end_date}
+                                    label="Fecha de entrega"
+                                >
+                                    <Input
+                                        onChange={(event) =>
+                                            form.setData(
+                                                'end_date',
+                                                event.target.value,
+                                            )
+                                        }
+                                        type="date"
+                                        value={form.data.end_date}
+                                    />
+                                </Field>
+                            </div>
+                            <DialogFooter>
+                                <Button
+                                    disabled={form.processing}
+                                    type="submit"
+                                >
+                                    {form.processing
+                                        ? 'Guardando...'
+                                        : 'Guardar proyecto'}
+                                </Button>
+                            </DialogFooter>
+                        </form>
+                    </DialogContent>
+                </Dialog>
+            )}
+
+            {canManage && (
+                <Dialog
+                    onOpenChange={(open) => {
+                        if (!open) setDeletingProject(null);
+                    }}
+                    open={deletingProject !== null}
+                >
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Eliminar proyecto</DialogTitle>
+                            <DialogDescription>
+                                ¿Seguro que deseas eliminar “
+                                {deletingProject?.name}
+                                ”? Esta acción no se puede deshacer.
+                            </DialogDescription>
+                        </DialogHeader>
                         <DialogFooter>
-                            <Button disabled={form.processing} type="submit">
-                                {form.processing
-                                    ? 'Guardando...'
-                                    : 'Guardar proyecto'}
+                            <Button
+                                onClick={() => setDeletingProject(null)}
+                                variant="outline"
+                            >
+                                Cancelar
+                            </Button>
+                            <Button
+                                onClick={deleteProject}
+                                variant="destructive"
+                            >
+                                Eliminar proyecto
                             </Button>
                         </DialogFooter>
-                    </form>
-                </DialogContent>
-            </Dialog>
-
-            <Dialog
-                onOpenChange={(open) => {
-                    if (!open) setDeletingProject(null);
-                }}
-                open={deletingProject !== null}
-            >
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Eliminar proyecto</DialogTitle>
-                        <DialogDescription>
-                            ¿Seguro que deseas eliminar “{deletingProject?.name}
-                            ”? Esta acción no se puede deshacer.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter>
-                        <Button
-                            onClick={() => setDeletingProject(null)}
-                            variant="outline"
-                        >
-                            Cancelar
-                        </Button>
-                        <Button onClick={deleteProject} variant="destructive">
-                            Eliminar proyecto
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+                    </DialogContent>
+                </Dialog>
+            )}
         </>
     );
 }

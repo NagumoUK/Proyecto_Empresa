@@ -1,6 +1,8 @@
 <?php
 
 use App\Models\User;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 
 test('profile page is displayed', function () {
     $user = User::factory()->create();
@@ -82,4 +84,41 @@ test('correct password must be provided to delete account', function () {
         ->assertRedirect(route('profile.edit'));
 
     expect($user->fresh())->not->toBeNull();
+});
+
+test('users can upload and view a processed private profile photo', function () {
+    Storage::fake('local');
+
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->post(route('profile.avatar.update'), [
+            'avatar' => UploadedFile::fake()->image('avatar.png', 100, 100),
+        ])
+        ->assertSessionHasNoErrors()
+        ->assertRedirect(route('profile.edit'));
+
+    $avatarPath = $user->fresh()->avatar_path;
+
+    expect(pathinfo($avatarPath, PATHINFO_EXTENSION))->toBe('webp');
+    Storage::disk('local')->assertExists($avatarPath);
+
+    $this->get(route('profile.avatar'))
+        ->assertOk()
+        ->assertHeader('Content-Type', 'image/webp');
+});
+
+test('profile photo uploads reject non-image files', function () {
+    Storage::fake('local');
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->from(route('profile.edit'))
+        ->post(route('profile.avatar.update'), [
+            'avatar' => UploadedFile::fake()->create('not-an-image.txt', 10, 'text/plain'),
+        ])
+        ->assertSessionHasErrors('avatar')
+        ->assertRedirect(route('profile.edit'));
+
+    expect($user->fresh()->avatar_path)->toBeNull();
 });

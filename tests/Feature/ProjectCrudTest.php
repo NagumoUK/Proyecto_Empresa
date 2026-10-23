@@ -1,8 +1,14 @@
 <?php
 
+use App\Enums\UserRole;
+use App\Mail\DeletionApprovalRequestMail;
+use App\Mail\ManagementActivityMail;
 use App\Models\Client;
+use App\Models\DeletionRequest;
+use App\Models\FinancialDocument;
 use App\Models\Project;
 use App\Models\User;
+use Illuminate\Support\Facades\Mail;
 
 test('guests cannot access project management', function () {
     $this->get(route('management.proyectos.index'))
@@ -13,6 +19,9 @@ test('guests cannot access project management', function () {
 });
 
 test('authenticated users can create, view, filter and update projects', function () {
+    Mail::fake();
+    config(['mail.activity_recipient' => 'notifications@example.com']);
+
     $this->actingAs(User::factory()->create());
     $client = Client::query()->create([
         'name' => 'Ana López',
@@ -62,6 +71,14 @@ test('authenticated users can create, view, filter and update projects', functio
         'status' => 'active',
         'budget' => '15000.00',
     ]);
+
+    Mail::assertSent(ManagementActivityMail::class, fn (ManagementActivityMail $mail): bool => $mail->hasTo('notifications@example.com')
+        && $mail->action === 'Creación de'
+        && $mail->entityName === 'Portal de clientes');
+
+    Mail::assertSent(ManagementActivityMail::class, fn (ManagementActivityMail $mail): bool => $mail->hasTo('notifications@example.com')
+        && $mail->action === 'Actualización de'
+        && $mail->entityName === 'Portal de clientes v2');
 });
 
 test('project filters accept only string values', function () {
@@ -99,8 +116,11 @@ test('projects require a valid client, status, budget and date order', function 
     $this->assertDatabaseCount('projects', 0);
 });
 
-test('projects can be deleted', function () {
-    $this->actingAs(User::factory()->create());
+test('projects require admin approval before deletion', function () {
+    Mail::fake();
+    config(['app.admin_email' => 'notifications@example.com']);
+
+    $manager = User::factory()->create();
     $client = Client::query()->create([
         'name' => 'Cliente de prueba',
         'status' => 'active',
@@ -111,9 +131,97 @@ test('projects can be deleted', function () {
         'status' => 'planning',
     ]);
 
-    $this->delete(route('management.proyectos.destroy', $project))
+    $this->actingAs($manager)
+        ->delete(route('management.proyectos.destroy', $project))
         ->assertRedirect(route('management.proyectos.index'));
 
-    $this->assertDatabaseMissing('projects', ['id' => $project->id]);
+    $this->assertDatabaseHas('projects', ['id' => $project->id]);
     $this->assertDatabaseHas('clients', ['id' => $client->id]);
+    $deletionRequest = DeletionRequest::query()
+        ->where('entity_type', 'project')
+        ->where('entity_id', $project->id)
+        ->firstOrFail();
+
+    expect($deletionRequest->status)->toBe('pending');
+    Mail::assertSent(DeletionApprovalRequestMail::class, fn (DeletionApprovalRequestMail $mail): bool => $mail->hasTo('notifications@example.com')
+        && $mail->entityName === 'Proyecto eliminable'
+        && $mail->requesterName === $manager->name);
+
+    $admin = User::factory()->create(['role' => UserRole::Admin]);
+    $this->actingAs($admin)
+        ->post(route('management.solicitudes-eliminacion.aprobar', $deletionRequest))
+        ->assertRedirect();
+
+    $this->assertDatabaseMissing('projects', ['id' => $project->id]);
+    $this->assertDatabaseHas('deletion_requests', [
+        'id' => $deletionRequest->id,
+        'status' => 'approved',
+        'reviewed_by' => $admin->id,
+    ]);
+});
+
+test('an administrator cannot approve deletion after a financial document is created', function () {
+    Mail::fake();
+    config(['app.admin_email' => 'admin@example.com']);
+
+    $manager = User::factory()->create();
+    $client = Client::query()->create([
+        'name' => 'Cliente con cotización',
+        'status' => 'active',
+    ]);
+    $project = Project::query()->create([
+        'client_id' => $client->id,
+        'name' => 'Proyecto protegido',
+        'status' => 'planning',
+    ]);
+
+    $this->actingAs($manager)
+        ->delete(route('management.proyectos.destroy', $project))
+        ->assertRedirect(route('management.proyectos.index'));
+
+    $deletionRequest = DeletionRequest::query()->firstOrFail();
+    FinancialDocument::query()->create([
+        'client_id' => $client->id,
+        'project_id' => $project->id,
+        'type' => 'quote',
+        'status' => 'draft',
+        'issue_date' => '2026-10-16',
+        'currency' => 'PEN',
+        'subtotal' => '10.00',
+        'tax_rate' => '18.00',
+        'tax_amount' => '1.80',
+        'total' => '11.80',
+    ]);
+
+    $admin = User::factory()->create(['role' => UserRole::Admin]);
+    $this->actingAs($admin)
+        ->post(route('management.solicitudes-eliminacion.aprobar', $deletionRequest))
+        ->assertSessionHasErrors('approval');
+
+    $this->assertDatabaseHas('projects', ['id' => $project->id]);
+    $this->assertDatabaseHas('deletion_requests', [
+        'id' => $deletionRequest->id,
+        'status' => 'rejected',
+        'reviewed_by' => $admin->id,
+    ]);
+});
+
+test('management activity emails render the action performer and details', function () {
+    $html = (new ManagementActivityMail(
+        action: 'Creación de',
+        entityType: 'proyecto',
+        entityName: 'Portal de clientes',
+        actorName: 'David',
+        details: [
+            'Cliente' => 'Inversiones Delta',
+            'Presupuesto' => 'S/ 12500.50',
+        ],
+    ))->render();
+
+    expect($html)
+        ->toContain('Creación de proyecto')
+        ->toContain('Portal de clientes')
+        ->toContain('David')
+        ->toContain('Inversiones Delta')
+        ->toContain('S/ 12500.50');
 });
