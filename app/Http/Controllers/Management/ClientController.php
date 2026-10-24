@@ -2,14 +2,16 @@
 
 namespace App\Http\Controllers\Management;
 
+use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Management\IndexClientRequest;
 use App\Http\Requests\Management\StoreClientRequest;
 use App\Http\Requests\Management\UpdateClientRequest;
 use App\Models\Client;
-use App\Services\DeletionRequestService;
+use App\Models\DeletionRequest;
 use App\Services\ImageStorage;
 use App\Services\ManagementActivityMailer;
+use App\Services\ManagementChangeRequestService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -52,6 +54,7 @@ class ClientController extends Controller
         StoreClientRequest $request,
         ImageStorage $imageStorage,
         ManagementActivityMailer $activityMailer,
+        ManagementChangeRequestService $changeRequests,
     ): RedirectResponse {
         $attributes = $request->safe()->except(['logo']);
         $logo = $request->file('logo');
@@ -61,6 +64,20 @@ class ClientController extends Controller
 
         if ($logoPath !== null) {
             $attributes['logo_path'] = $logoPath;
+        }
+
+        if ($request->user()->role !== UserRole::Admin) {
+            try {
+                $result = $changeRequests->requestCreate('client', $attributes, $request->user());
+            } catch (Throwable $exception) {
+                $this->deleteStagedLogo($imageStorage, $logoPath);
+
+                throw $exception;
+            }
+
+            $this->flashChangeRequest('creación de cliente', $result);
+
+            return to_route('management.clientes.index');
         }
 
         try {
@@ -109,29 +126,43 @@ class ClientController extends Controller
         Client $cliente,
         ImageStorage $imageStorage,
         ManagementActivityMailer $activityMailer,
+        ManagementChangeRequestService $changeRequests,
     ): RedirectResponse {
-        $cliente->fill($request->safe()->except(['logo']));
+        $attributes = $request->safe()->except(['logo']);
 
-        $oldLogoPath = null;
         $newLogoPath = null;
         $logo = $request->file('logo');
 
         if ($logo instanceof UploadedFile) {
-            $oldLogoPath = $cliente->logo_path;
             $newLogoPath = $imageStorage->store($logo, 'clients/logos', 512, 512);
-            $cliente->logo_path = $newLogoPath;
+            $attributes['logo_path'] = $newLogoPath;
         }
+
+        if ($request->user()->role !== UserRole::Admin) {
+            try {
+                $result = $changeRequests->requestUpdate($cliente, $attributes, $request->user());
+            } catch (Throwable $exception) {
+                $this->deleteStagedLogo($imageStorage, $newLogoPath);
+
+                if ($exception instanceof \LogicException) {
+                    throw ValidationException::withMessages(['change' => $exception->getMessage()]);
+                }
+
+                throw $exception;
+            }
+
+            $this->flashChangeRequest('actualización de cliente', $result);
+
+            return to_route('management.clientes.index');
+        }
+
+        $oldLogoPath = $cliente->logo_path;
+        $cliente->fill($attributes);
 
         try {
             $cliente->save();
         } catch (Throwable $exception) {
-            if ($newLogoPath !== null) {
-                try {
-                    $imageStorage->delete($newLogoPath);
-                } catch (Throwable $cleanupException) {
-                    report($cleanupException);
-                }
-            }
+            $this->deleteStagedLogo($imageStorage, $newLogoPath);
 
             throw $exception;
         }
@@ -160,10 +191,10 @@ class ClientController extends Controller
     public function destroy(
         Request $request,
         Client $cliente,
-        DeletionRequestService $deletionRequests,
+        ManagementChangeRequestService $changeRequests,
     ): RedirectResponse {
         try {
-            $result = $deletionRequests->request($cliente, $request->user());
+            $result = $changeRequests->request($cliente, $request->user());
         } catch (\LogicException $exception) {
             throw ValidationException::withMessages(['delete' => $exception->getMessage()]);
         }
@@ -180,6 +211,19 @@ class ClientController extends Controller
         return to_route('management.clientes.index');
     }
 
+    /**
+     * @param  array{request: DeletionRequest, email_sent: bool, created: bool}  $result
+     */
+    private function flashChangeRequest(string $action, array $result): void
+    {
+        Inertia::flash('toast', [
+            'type' => $result['email_sent'] ? 'success' : 'warning',
+            'message' => $result['email_sent']
+                ? "Solicitud de {$action} enviada al administrador."
+                : "La solicitud de {$action} quedó guardada, pero no se pudo notificar al administrador.",
+        ]);
+    }
+
     private function flashActivityToast(string $message, bool $emailSent): void
     {
         Inertia::flash('toast', [
@@ -188,5 +232,18 @@ class ClientController extends Controller
                 ? "{$message} Se envió un aviso por correo."
                 : "{$message} No se pudo enviar el aviso por correo; revisa los registros.",
         ]);
+    }
+
+    private function deleteStagedLogo(ImageStorage $imageStorage, ?string $logoPath): void
+    {
+        if ($logoPath === null) {
+            return;
+        }
+
+        try {
+            $imageStorage->delete($logoPath);
+        } catch (Throwable $exception) {
+            report($exception);
+        }
     }
 }

@@ -1,8 +1,8 @@
 <?php
 
 use App\Enums\UserRole;
-use App\Mail\DeletionApprovalRequestMail;
 use App\Mail\ManagementActivityMail;
+use App\Mail\ManagementChangeRequestMail;
 use App\Models\Client;
 use App\Models\DeletionRequest;
 use App\Models\FinancialDocument;
@@ -22,7 +22,7 @@ test('authenticated users can create, view, filter and update projects', functio
     Mail::fake();
     config(['mail.activity_recipient' => 'notifications@example.com']);
 
-    $this->actingAs(User::factory()->create());
+    $this->actingAs(User::factory()->create(['role' => UserRole::Admin]));
     $client = Client::query()->create([
         'name' => 'Ana López',
         'company' => 'Inversiones Delta',
@@ -79,6 +79,66 @@ test('authenticated users can create, view, filter and update projects', functio
     Mail::assertSent(ManagementActivityMail::class, fn (ManagementActivityMail $mail): bool => $mail->hasTo('notifications@example.com')
         && $mail->action === 'Actualización de'
         && $mail->entityName === 'Portal de clientes v2');
+});
+
+test('managers submit project creation and updates for administrator approval', function () {
+    Mail::fake();
+    config(['app.admin_email' => 'admin@example.com']);
+
+    $manager = User::factory()->create(['role' => UserRole::Manager]);
+    $admin = User::factory()->create(['role' => UserRole::Admin]);
+    $client = Client::query()->create([
+        'name' => 'Cliente del proyecto',
+        'status' => 'active',
+    ]);
+
+    $this->actingAs($manager)
+        ->post(route('management.proyectos.store'), [
+            'client_id' => $client->id,
+            'name' => 'Proyecto pendiente',
+            'description' => 'Descripción inicial',
+            'status' => 'planning',
+            'budget' => '1000.00',
+        ])
+        ->assertRedirect(route('management.proyectos.index'));
+
+    $creationRequest = DeletionRequest::query()->where('action', 'create')->firstOrFail();
+    $this->assertDatabaseCount('projects', 0);
+
+    $this->actingAs($admin)
+        ->post(route('management.solicitudes-eliminacion.aprobar', $creationRequest))
+        ->assertRedirect();
+
+    $project = Project::query()->where('name', 'Proyecto pendiente')->firstOrFail();
+    $this->actingAs($manager)
+        ->put(route('management.proyectos.update', $project), [
+            'client_id' => $client->id,
+            'name' => 'Proyecto actualizado',
+            'description' => 'Descripción aprobada',
+            'status' => 'active',
+            'budget' => '1500.00',
+        ])
+        ->assertRedirect(route('management.proyectos.index'));
+
+    $updateRequest = DeletionRequest::query()->where('action', 'update')->firstOrFail();
+    $this->assertDatabaseHas('projects', [
+        'id' => $project->id,
+        'name' => 'Proyecto pendiente',
+        'status' => 'planning',
+    ]);
+
+    $this->actingAs($admin)
+        ->post(route('management.solicitudes-eliminacion.aprobar', $updateRequest))
+        ->assertRedirect();
+
+    $this->assertDatabaseHas('projects', [
+        'id' => $project->id,
+        'name' => 'Proyecto actualizado',
+        'description' => 'Descripción aprobada',
+        'status' => 'active',
+        'budget' => '1500.00',
+    ]);
+    Mail::assertSentTimes(ManagementChangeRequestMail::class, 2);
 });
 
 test('project filters accept only string values', function () {
@@ -143,9 +203,10 @@ test('projects require admin approval before deletion', function () {
         ->firstOrFail();
 
     expect($deletionRequest->status)->toBe('pending');
-    Mail::assertSent(DeletionApprovalRequestMail::class, fn (DeletionApprovalRequestMail $mail): bool => $mail->hasTo('notifications@example.com')
+    Mail::assertSent(ManagementChangeRequestMail::class, fn (ManagementChangeRequestMail $mail): bool => $mail->hasTo('notifications@example.com')
         && $mail->entityName === 'Proyecto eliminable'
-        && $mail->requesterName === $manager->name);
+        && $mail->requesterName === $manager->name
+        && $mail->action === 'eliminar');
 
     $admin = User::factory()->create(['role' => UserRole::Admin]);
     $this->actingAs($admin)

@@ -1,9 +1,14 @@
-import { Head, Link, router } from '@inertiajs/react';
+import { Form, Head, Link, router } from '@inertiajs/react';
 import { useState, type FormEvent } from 'react';
+import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
     index as usersIndex,
+    invitacion as resendInvitation,
     rol as updateUserRole,
+    store as createUser,
 } from '@/routes/management/usuarios';
 import type { User } from '@/types/auth';
 
@@ -38,14 +43,96 @@ export default function UsersIndex({ users, roles }: PageProps) {
                             Usuarios y roles
                         </h1>
                         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                            Administra permisos y consulta el estado de
-                            verificación de cada cuenta.
+                            Crea cuentas, asigna permisos y consulta el estado
+                            de verificación.
                         </p>
                     </header>
 
+                    <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                        <h2 className="text-lg font-semibold text-slate-950 dark:text-white">
+                            Crear usuario
+                        </h2>
+                        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                            Se enviará un enlace para verificar el correo y
+                            establecer la contraseña.
+                        </p>
+                        <Form
+                            {...createUser.form()}
+                            resetOnSuccess
+                            className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
+                        >
+                            {({ errors, processing }) => (
+                                <>
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="new-user-name">
+                                            Nombre
+                                        </Label>
+                                        <Input
+                                            id="new-user-name"
+                                            name="name"
+                                            autoComplete="name"
+                                            required
+                                        />
+                                        <InputError message={errors.name} />
+                                    </div>
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="new-user-email">
+                                            Correo electrónico
+                                        </Label>
+                                        <Input
+                                            id="new-user-email"
+                                            name="email"
+                                            type="email"
+                                            autoComplete="email"
+                                            required
+                                        />
+                                        <InputError message={errors.email} />
+                                    </div>
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="new-user-role">
+                                            Rol
+                                        </Label>
+                                        <select
+                                            id="new-user-role"
+                                            className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                                            defaultValue="manager"
+                                            name="role"
+                                            required
+                                        >
+                                            {Object.entries(roles).map(
+                                                ([value, label]) => (
+                                                    <option
+                                                        key={value}
+                                                        value={value}
+                                                    >
+                                                        {label}
+                                                    </option>
+                                                ),
+                                            )}
+                                        </select>
+                                        <InputError message={errors.role} />
+                                    </div>
+                                    <div className="flex items-end">
+                                        <Button
+                                            className="w-full"
+                                            disabled={processing}
+                                            type="submit"
+                                        >
+                                            Crear y enviar invitación
+                                        </Button>
+                                    </div>
+                                    <InputError
+                                        className="sm:col-span-2 lg:col-span-4"
+                                        message={errors.invitation}
+                                    />
+                                </>
+                            )}
+                        </Form>
+                    </section>
+
                     <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
                         <div className="overflow-x-auto">
-                            <table className="w-full min-w-[680px] text-left text-sm">
+                            <table className="w-full min-w-[900px] text-left text-sm">
                                 <thead className="bg-slate-50 text-xs tracking-wide text-slate-500 uppercase dark:bg-slate-950/50 dark:text-slate-400">
                                     <tr>
                                         <th className="px-5 py-3 font-medium">
@@ -59,6 +146,9 @@ export default function UsersIndex({ users, roles }: PageProps) {
                                         </th>
                                         <th className="px-5 py-3 font-medium">
                                             Rol
+                                        </th>
+                                        <th className="px-5 py-3 font-medium">
+                                            Invitación
                                         </th>
                                     </tr>
                                 </thead>
@@ -74,7 +164,7 @@ export default function UsersIndex({ users, roles }: PageProps) {
                                         <tr>
                                             <td
                                                 className="px-5 py-12 text-center text-slate-500 dark:text-slate-400"
-                                                colSpan={4}
+                                                colSpan={5}
                                             >
                                                 No hay usuarios registrados.
                                             </td>
@@ -194,6 +284,25 @@ function UserRoleRow({
                         </Button>
                     )}
                 </form>
+            </td>
+            <td className="px-5 py-4">
+                {!user.email_verified_at && (
+                    <Button
+                        onClick={() =>
+                            router.post(
+                                resendInvitation.url(user.id),
+                                {},
+                                {
+                                    preserveScroll: true,
+                                },
+                            )
+                        }
+                        size="sm"
+                        variant="outline"
+                    >
+                        Reenviar enlace
+                    </Button>
+                )}
             </td>
         </tr>
     );

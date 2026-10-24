@@ -2,14 +2,16 @@
 
 namespace App\Http\Controllers\Management;
 
+use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Management\IndexProjectRequest;
 use App\Http\Requests\Management\StoreProjectRequest;
 use App\Http\Requests\Management\UpdateProjectRequest;
 use App\Models\Client;
+use App\Models\DeletionRequest;
 use App\Models\Project;
-use App\Services\DeletionRequestService;
 use App\Services\ManagementActivityMailer;
+use App\Services\ManagementChangeRequestService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -57,7 +59,19 @@ class ProjectController extends Controller
     public function store(
         StoreProjectRequest $request,
         ManagementActivityMailer $activityMailer,
+        ManagementChangeRequestService $changeRequests,
     ): RedirectResponse {
+        if ($request->user()->role !== UserRole::Admin) {
+            $result = $changeRequests->requestCreate(
+                'project',
+                $request->validated(),
+                $request->user(),
+            );
+            $this->flashChangeRequest('creación de proyecto', $result);
+
+            return to_route('management.proyectos.index');
+        }
+
         $project = Project::query()->create($request->validated())->load('client');
         $emailSent = $activityMailer->send(
             action: 'Creación de',
@@ -95,7 +109,24 @@ class ProjectController extends Controller
         UpdateProjectRequest $request,
         Project $proyecto,
         ManagementActivityMailer $activityMailer,
+        ManagementChangeRequestService $changeRequests,
     ): RedirectResponse {
+        if ($request->user()->role !== UserRole::Admin) {
+            try {
+                $result = $changeRequests->requestUpdate(
+                    $proyecto,
+                    $request->validated(),
+                    $request->user(),
+                );
+            } catch (\LogicException $exception) {
+                throw ValidationException::withMessages(['change' => $exception->getMessage()]);
+            }
+
+            $this->flashChangeRequest('actualización de proyecto', $result);
+
+            return to_route('management.proyectos.index');
+        }
+
         $proyecto->update($request->validated());
         $proyecto->load('client');
 
@@ -115,10 +146,10 @@ class ProjectController extends Controller
     public function destroy(
         Request $request,
         Project $proyecto,
-        DeletionRequestService $deletionRequests,
+        ManagementChangeRequestService $changeRequests,
     ): RedirectResponse {
         try {
-            $result = $deletionRequests->request($proyecto, $request->user());
+            $result = $changeRequests->request($proyecto, $request->user());
         } catch (\LogicException $exception) {
             throw ValidationException::withMessages(['delete' => $exception->getMessage()]);
         }
@@ -133,6 +164,19 @@ class ProjectController extends Controller
         ]);
 
         return to_route('management.proyectos.index');
+    }
+
+    /**
+     * @param  array{request: DeletionRequest, email_sent: bool, created: bool}  $result
+     */
+    private function flashChangeRequest(string $action, array $result): void
+    {
+        Inertia::flash('toast', [
+            'type' => $result['email_sent'] ? 'success' : 'warning',
+            'message' => $result['email_sent']
+                ? "Solicitud de {$action} enviada al administrador."
+                : "La solicitud de {$action} quedó guardada, pero no se pudo notificar al administrador.",
+        ]);
     }
 
     /**

@@ -228,9 +228,11 @@ CREATE INDEX project_files_project_id_created_at_index
 CREATE TABLE deletion_requests (
     id BIGSERIAL PRIMARY KEY,
     entity_type VARCHAR(20) NOT NULL,
-    entity_id BIGINT NOT NULL,
+    action VARCHAR(20) NOT NULL DEFAULT 'delete',
+    entity_id BIGINT NULL,
     entity_name VARCHAR(255) NOT NULL,
     details JSON NOT NULL,
+    changes JSON NULL,
     requested_by BIGINT NOT NULL,
     requester_name VARCHAR(255) NOT NULL,
     reviewed_by BIGINT NULL,
@@ -270,7 +272,8 @@ INSERT INTO migrations (migration, batch) VALUES
     ('2026_10_16_171749_add_budget_currency_to_projects_table', 3),
     ('2026_10_23_205902_add_image_paths_to_users_and_clients', 4),
     ('2026_10_23_223126_add_role_to_users_table', 4),
-    ('2026_10_23_223127_create_deletion_requests_table', 4);
+    ('2026_10_23_223127_create_deletion_requests_table', 4),
+    ('2026_10_24_000602_add_action_and_changes_to_deletion_requests_table', 5);
 
 COMMIT;
 

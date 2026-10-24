@@ -1,8 +1,8 @@
 <?php
 
 use App\Enums\UserRole;
-use App\Mail\DeletionApprovalRequestMail;
 use App\Mail\ManagementActivityMail;
+use App\Mail\ManagementChangeRequestMail;
 use App\Models\Client;
 use App\Models\DeletionRequest;
 use App\Models\Project;
@@ -23,7 +23,7 @@ test('authenticated users can create, view, search and update clients', function
     Mail::fake();
     config(['mail.activity_recipient' => 'notifications@example.com']);
 
-    $user = User::factory()->create();
+    $user = User::factory()->create(['role' => UserRole::Admin]);
     $this->actingAs($user);
 
     $this->post(route('management.clientes.store'), [
@@ -73,6 +73,81 @@ test('authenticated users can create, view, search and update clients', function
     Mail::assertSent(ManagementActivityMail::class, fn (ManagementActivityMail $mail): bool => $mail->hasTo('notifications@example.com')
         && $mail->action === 'Actualización de'
         && $mail->entityName === 'María C. Cortés');
+});
+
+test('managers submit client creation and updates for administrator approval', function () {
+    Mail::fake();
+    config(['app.admin_email' => 'admin@example.com']);
+
+    $manager = User::factory()->create(['role' => UserRole::Manager]);
+    $admin = User::factory()->create(['role' => UserRole::Admin]);
+
+    $this->actingAs($manager)
+        ->post(route('management.clientes.store'), [
+            'name' => 'Cliente pendiente',
+            'company' => 'Empresa pendiente',
+            'email' => 'pendiente@example.com',
+            'status' => 'active',
+        ])
+        ->assertRedirect(route('management.clientes.index'));
+
+    $creationRequest = DeletionRequest::query()->where('action', 'create')->firstOrFail();
+    expect($creationRequest->entity_id)->toBeNull();
+    $this->assertDatabaseMissing('clients', ['email' => 'pendiente@example.com']);
+
+    $reviewMail = null;
+    Mail::assertSent(ManagementChangeRequestMail::class, function (ManagementChangeRequestMail $mail) use (&$reviewMail): bool {
+        $reviewMail = $mail;
+
+        return $mail->hasTo('admin@example.com')
+            && str_contains($mail->reviewUrl, 'solicitud=');
+    });
+
+    $this->actingAs($admin)
+        ->get($reviewMail->reviewUrl)
+        ->assertInertia(fn ($page) => $page
+            ->where('selectedRequestId', $creationRequest->id)
+            ->where('requests.data.0.action', 'create')
+            ->where('requests.data.0.changes.proposed.company', 'Empresa pendiente')
+        );
+
+    $this->post(route('management.solicitudes-eliminacion.aprobar', $creationRequest))
+        ->assertRedirect();
+
+    $client = Client::query()->where('email', 'pendiente@example.com')->firstOrFail();
+    $this->assertDatabaseHas('deletion_requests', [
+        'id' => $creationRequest->id,
+        'entity_id' => $client->id,
+        'status' => 'approved',
+    ]);
+
+    $this->actingAs($manager)
+        ->put(route('management.clientes.update', $client), [
+            'name' => 'Cliente actualizado',
+            'company' => 'Empresa aprobada',
+            'email' => 'pendiente@example.com',
+            'status' => 'inactive',
+        ])
+        ->assertRedirect(route('management.clientes.index'));
+
+    $updateRequest = DeletionRequest::query()->where('action', 'update')->firstOrFail();
+    $this->assertDatabaseHas('clients', [
+        'id' => $client->id,
+        'name' => 'Cliente pendiente',
+        'status' => 'active',
+    ]);
+
+    $this->actingAs($admin)
+        ->post(route('management.solicitudes-eliminacion.aprobar', $updateRequest))
+        ->assertRedirect();
+
+    $this->assertDatabaseHas('clients', [
+        'id' => $client->id,
+        'name' => 'Cliente actualizado',
+        'company' => 'Empresa aprobada',
+        'status' => 'inactive',
+    ]);
+    Mail::assertSentTimes(ManagementChangeRequestMail::class, 2);
 });
 
 test('client search accepts only a string of up to 255 characters', function () {
@@ -139,9 +214,10 @@ test('clients without dependencies require an admin deletion approval', function
         ->firstOrFail();
 
     expect($deletionRequest->status)->toBe('pending');
-    Mail::assertSent(DeletionApprovalRequestMail::class, fn (DeletionApprovalRequestMail $mail): bool => $mail->hasTo('notifications@example.com')
+    Mail::assertSent(ManagementChangeRequestMail::class, fn (ManagementChangeRequestMail $mail): bool => $mail->hasTo('notifications@example.com')
         && $mail->entityName === 'Cliente eliminable'
-        && $mail->requesterName === $manager->name);
+        && $mail->requesterName === $manager->name
+        && $mail->action === 'eliminar');
 
     $admin = User::factory()->create(['role' => UserRole::Admin]);
     $this->actingAs($admin)
@@ -174,7 +250,7 @@ test('duplicate deletion requests send one email and an admin can reject the req
 
     $deletionRequest = DeletionRequest::query()->firstOrFail();
     $this->assertDatabaseCount('deletion_requests', 1);
-    Mail::assertSentTimes(DeletionApprovalRequestMail::class, 1);
+    Mail::assertSentTimes(ManagementChangeRequestMail::class, 1);
 
     $admin = User::factory()->create(['role' => UserRole::Admin]);
     $this->actingAs($admin)
@@ -191,7 +267,7 @@ test('duplicate deletion requests send one email and an admin can reject the req
 
 test('client logos are processed, replaced and served from private storage', function () {
     Storage::fake('local');
-    $this->actingAs(User::factory()->create());
+    $this->actingAs(User::factory()->create(['role' => UserRole::Admin]));
 
     $this->post(route('management.clientes.store'), [
         'name' => 'Cliente con logotipo',

@@ -81,7 +81,7 @@ export function AppSidebar() {
                       icon: Shield,
                   },
                   {
-                      title: 'Solicitudes de eliminación',
+                      title: 'Solicitudes de cambios',
                       href: deletionRequestsIndex(),
                       icon: ClipboardCheck,
                   },

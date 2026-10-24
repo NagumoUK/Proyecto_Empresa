@@ -8,9 +8,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 #[Fillable([
     'entity_type',
+    'action',
     'entity_id',
     'entity_name',
     'details',
+    'changes',
     'requested_by',
     'requester_name',
     'reviewed_by',
@@ -36,6 +38,7 @@ class DeletionRequest extends Model
     {
         return [
             'details' => 'array',
+            'changes' => 'array',
             'reviewed_at' => 'datetime',
         ];
     }

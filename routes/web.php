@@ -61,8 +61,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::middleware('role:admin')->group(function (): void {
             Route::get('usuarios', [UserManagementController::class, 'index'])
                 ->name('usuarios.index');
+            Route::post('usuarios', [UserManagementController::class, 'store'])
+                ->name('usuarios.store');
             Route::patch('usuarios/{user}/rol', [UserManagementController::class, 'updateRole'])
                 ->name('usuarios.rol');
+            Route::post('usuarios/{user}/invitacion', [UserManagementController::class, 'resendInvitation'])
+                ->name('usuarios.invitacion');
             Route::get('solicitudes-eliminacion', [DeletionRequestController::class, 'index'])
                 ->name('solicitudes-eliminacion.index');
             Route::post('solicitudes-eliminacion/{deletionRequest}/aprobar', [DeletionRequestController::class, 'approve'])

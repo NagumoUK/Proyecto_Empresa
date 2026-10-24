@@ -1,6 +1,6 @@
-<h1>Solicitud de eliminación pendiente</h1>
+<h1>Solicitud de cambio pendiente</h1>
 
-<p>{{ $requesterName }} solicita eliminar el siguiente registro:</p>
+<p>{{ $requesterName }} solicita {{ $action }} el siguiente registro:</p>
 
 <p><strong>Registro:</strong> {{ $entityType }} — {{ $entityName }}</p>
 
@@ -15,6 +15,6 @@
 
 <p>Inicia sesión con una cuenta de administrador para revisar y aprobar o rechazar la solicitud:</p>
 
-<p><a href="{{ $approvalUrl }}">Revisar solicitud</a></p>
+<p><a href="{{ $reviewUrl }}">Revisar y decidir</a></p>
 
-<p>El enlace no elimina el registro por sí mismo y requiere iniciar sesión como administrador.</p>
+<p>El enlace abre el panel de revisión y requiere iniciar sesión como administrador. No aprueba ni rechaza el cambio al abrirse.</p>
