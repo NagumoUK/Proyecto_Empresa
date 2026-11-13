@@ -6,6 +6,7 @@ import {
     markAsRead as markAsReadAction,
 } from '@/actions/App/Http/Controllers/NotificationController';
 import { Button } from '@/components/ui/button';
+import { PushNotificationToggle } from '@/components/push-notification-toggle';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -27,7 +28,7 @@ function formatCreatedAt(createdAt: string | null): string {
 }
 
 export function NotificationBell() {
-    const { auth, notifications } = usePage().props;
+    const { auth, notifications, push } = usePage().props;
     const userId = auth.user?.id;
 
     useEffect(() => {
@@ -157,6 +158,7 @@ export function NotificationBell() {
                         ))}
                     </div>
                 )}
+                <PushNotificationToggle publicKey={push.publicKey} />
             </DropdownMenuContent>
         </DropdownMenu>
     );

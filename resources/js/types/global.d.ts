@@ -1,5 +1,5 @@
 import type { Auth } from '@/types/auth';
-import type { Notifications } from '@/types/ui';
+import type { Notifications, PushSettings } from '@/types/ui';
 import type Echo from '@ably/laravel-echo';
 import type * as Ably from 'ably';
 
@@ -22,6 +22,7 @@ declare module '@inertiajs/core' {
             name: string;
             auth: Auth;
             notifications: Notifications;
+            push: PushSettings;
             sidebarOpen: boolean;
             locale: string;
             [key: string]: unknown;

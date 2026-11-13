@@ -217,6 +217,35 @@ usarlos con Redis. Octane expone `127.0.0.1:8002`; el servicio Nginx/PHP-FPM
 predeterminado en el puerto `8000` no se reemplaza ni se redirige
 automáticamente.
 
+### Asistente de IA local con Ollama en Docker
+
+Compose incluye Ollama en una red interna, descarga el modelo configurado en
+`OLLAMA_MODEL` la primera vez y conserva sus archivos en el volumen
+`ollama_data`. El puerto de Ollama no se publica en el host. La aplicación y
+el worker se conectan por el nombre interno `ollama`, sin requerir una clave
+de OpenAI:
+
+```bash
+docker compose up -d --build
+docker compose logs -f ollama-init
+```
+
+La primera descarga ocupa varios GB y la inferencia usa memoria y CPU del
+servidor; comprueba que la máquina tenga recursos suficientes. Para cambiar el
+modelo, define `OLLAMA_MODEL` en el `.env` del servidor y vuelve a crear el
+servicio `ollama-init` junto con los procesos de la aplicación:
+
+```bash
+docker compose up -d --force-recreate ollama-init app queue
+```
+
+No publiques el puerto `11434` a Internet. Para revisar el estado:
+
+```bash
+docker compose ps
+docker compose logs app ollama
+```
+
 ### Desplegar en DigitalOcean con Docker y Nginx
 
 El despliegue usa Nginx para servir los archivos estáticos y enviar las
@@ -238,9 +267,11 @@ PostgreSQL de DigitalOcean; no se incluye una base de datos local en Compose.
 
     Usa `APP_ENV=production`, `APP_DEBUG=false` y la URL pública en `APP_URL`.
     Completa las credenciales de PostgreSQL, `ABLY_KEY` con una clave Root,
-    SMTP y las demás variables necesarias. Si usas Managed PostgreSQL, agrega
-    el Droplet a sus trusted sources y configura `DB_SSLMODE=require`. No
-    subas `.env` al repositorio.
+    SMTP y las demás variables necesarias. `OLLAMA_URL` se configura dentro de
+    Compose; `OLLAMA_MODEL` puede conservar `qwen3.5:4b` o apuntar a otro modelo
+    compatible con herramientas. Si usas Managed PostgreSQL, agrega el Droplet
+    a sus trusted sources y configura `DB_SSLMODE=require`. No subas `.env` al
+    repositorio.
 
 4. Genera una clave de aplicación sin guardarla en la imagen y cópiala al
    `APP_KEY` del `.env` del servidor:

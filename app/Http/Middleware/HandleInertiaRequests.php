@@ -49,6 +49,11 @@ class HandleInertiaRequests extends Middleware
                 'projectAttachments' => Feature::globally()->active('project-attachments'),
             ],
             'notifications' => fn (): array => $this->notificationsFor($request),
+            'push' => fn (): array => [
+                'publicKey' => filled(config('webpush.vapid.public_key'))
+                    ? config('webpush.vapid.public_key')
+                    : null,
+            ],
             'locale' => app()->getLocale(),
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];

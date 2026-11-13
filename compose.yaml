@@ -1,4 +1,31 @@
 services:
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD
+        - ollama
+        - list
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  ollama-init:
+    image: ollama/ollama:latest
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen3.5:4b}
+    command:
+      - pull
+      - ${OLLAMA_MODEL:-qwen3.5:4b}
+    depends_on:
+      ollama:
+        condition: service_healthy
+    restart: "no"
+
   app:
     build:
       context: .
@@ -8,6 +35,11 @@ services:
       - .env
     environment:
       LOG_CHANNEL: stderr
+      OLLAMA_URL: http://ollama:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen3.5:4b}
+    depends_on:
+      ollama-init:
+        condition: service_completed_successfully
     restart: unless-stopped
     volumes:
       - app_storage:/var/www/html/storage/app
@@ -40,9 +72,13 @@ services:
       - .env
     environment:
       LOG_CHANNEL: stderr
+      OLLAMA_URL: http://ollama:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen3.5:4b}
     depends_on:
       app:
         condition: service_started
+      ollama-init:
+        condition: service_completed_successfully
     init: true
     restart: unless-stopped
     volumes:
@@ -71,6 +107,11 @@ services:
       - .env
     environment:
       LOG_CHANNEL: stderr
+      OLLAMA_URL: http://ollama:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen3.5:4b}
+    depends_on:
+      ollama-init:
+        condition: service_completed_successfully
     init: true
     ports:
       - "127.0.0.1:8002:8000"
@@ -82,3 +123,4 @@ services:
 
 volumes:
   app_storage:
+  ollama_data:

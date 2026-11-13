@@ -27,6 +27,10 @@ export type Notifications = {
     items: NotificationItem[];
 };
 
+export type PushSettings = {
+    publicKey: string | null;
+};
+
 export type AuthLayoutProps = {
     children?: ReactNode;
     name?: string;

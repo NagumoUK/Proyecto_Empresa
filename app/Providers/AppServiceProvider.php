@@ -9,9 +9,12 @@ use App\Models\FinancialDocument;
 use App\Models\Project;
 use App\Observers\BusinessModelAuditObserver;
 use Carbon\CarbonImmutable;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 use Laravel\Pennant\Feature;
@@ -31,6 +34,15 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        RateLimiter::for('business-assistant', static function (Request $request): array {
+            $userId = $request->user()?->getAuthIdentifier();
+
+            return [
+                Limit::perMinute(8)->by('assistant-user:'.($userId ?? $request->ip())),
+                Limit::perMinute(30)->by('assistant-ip:'.$request->ip()),
+            ];
+        });
+
         Feature::define('document-management', static fn (): bool => true);
         Feature::define('project-attachments', static fn (): bool => true);
 

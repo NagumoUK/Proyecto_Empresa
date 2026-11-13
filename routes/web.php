@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\BusinessAssistantController;
 use App\Http\Controllers\CompanyActivityController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Management\ClientController;
@@ -9,6 +10,7 @@ use App\Http\Controllers\Management\ProjectController;
 use App\Http\Controllers\Management\ProjectFileController;
 use App\Http\Controllers\Management\UserManagementController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\PushSubscriptionController;
 use App\Http\Controllers\StoredImageController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -23,10 +25,18 @@ Route::get('/', function (Request $request) {
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', DashboardController::class)->name('dashboard');
+    Route::get('assistant', [BusinessAssistantController::class, 'index'])->name('assistant.index');
+    Route::post('assistant/questions', [BusinessAssistantController::class, 'ask'])
+        ->middleware('throttle:business-assistant')
+        ->name('assistant.ask');
     Route::patch('notifications/{notification}/read', [NotificationController::class, 'markAsRead'])
         ->name('notifications.read');
     Route::patch('notifications/read-all', [NotificationController::class, 'markAllAsRead'])
         ->name('notifications.read-all');
+    Route::post('notifications/push-subscriptions', [PushSubscriptionController::class, 'store'])
+        ->name('notifications.push-subscriptions.store');
+    Route::delete('notifications/push-subscriptions', [PushSubscriptionController::class, 'destroy'])
+        ->name('notifications.push-subscriptions.destroy');
 
     Route::post('activities', [CompanyActivityController::class, 'store'])
         ->middleware('role:admin,manager')

@@ -9,6 +9,8 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 use LogicException;
+use NotificationChannels\WebPush\WebPushChannel;
+use NotificationChannels\WebPush\WebPushMessage;
 
 class ActivityCreatedNotification extends Notification implements ShouldQueue
 {
@@ -19,7 +21,17 @@ class ActivityCreatedNotification extends Notification implements ShouldQueue
     /** @return array<int, string> */
     public function via(object $notifiable): array
     {
-        return ['database', 'broadcast', 'mail'];
+        $channels = ['database', 'broadcast', 'mail'];
+
+        if ($notifiable instanceof User
+            && $notifiable->pushSubscriptions()->exists()
+            && filled(config('webpush.vapid.public_key'))
+            && filled(config('webpush.vapid.private_key'))
+            && filled(config('webpush.vapid.subject'))) {
+            $channels[] = WebPushChannel::class;
+        }
+
+        return $channels;
     }
 
     /**
@@ -51,5 +63,18 @@ class ActivityCreatedNotification extends Notification implements ShouldQueue
             ->line($activity->user->name.' registró una nueva actividad.')
             ->line($activity->description)
             ->action('Ver dashboard', route('dashboard'));
+    }
+
+    public function toWebPush(object $notifiable, Notification $notification): WebPushMessage
+    {
+        if (! $notifiable instanceof User) {
+            throw new LogicException('Activity notifications require a user recipient.');
+        }
+
+        return (new WebPushMessage)
+            ->title('Nueva actividad en el equipo')
+            ->body('Se ha registrado una nueva actividad.')
+            ->tag('company-activity')
+            ->data(['url' => route('dashboard')]);
     }
 }

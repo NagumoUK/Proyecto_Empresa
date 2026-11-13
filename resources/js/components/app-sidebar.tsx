@@ -7,8 +7,10 @@ import {
     FolderGit2,
     LayoutGrid,
     Shield,
+    Sparkles,
     Users,
 } from 'lucide-react';
+import { index as assistantIndex } from '@/actions/App/Http/Controllers/BusinessAssistantController';
 import AppLogo from '@/components/app-logo';
 import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
@@ -41,6 +43,11 @@ const mainNavItems: NavItem[] = [
         title: 'Inicio',
         href: dashboard(),
         icon: LayoutGrid,
+    },
+    {
+        title: 'Asistente IA',
+        href: assistantIndex.url(),
+        icon: Sparkles,
     },
     {
         title: 'Clientes',
