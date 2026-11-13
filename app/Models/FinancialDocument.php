@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 
 /**
@@ -45,6 +46,8 @@ use Illuminate\Support\Carbon;
 ])]
 class FinancialDocument extends Model
 {
+    use SoftDeletes;
+
     protected $appends = ['reference'];
 
     public const TYPES = ['quote', 'invoice'];
@@ -99,13 +102,13 @@ class FinancialDocument extends Model
     /** @return BelongsTo<FinancialDocument, $this> */
     public function sourceDocument(): BelongsTo
     {
-        return $this->belongsTo(self::class, 'source_document_id');
+        return $this->belongsTo(self::class, 'source_document_id')->withTrashed();
     }
 
     /** @return HasMany<FinancialDocument, $this> */
     public function invoice(): HasMany
     {
-        return $this->hasMany(self::class, 'source_document_id');
+        return $this->hasMany(self::class, 'source_document_id')->withTrashed();
     }
 
     /** @return Attribute<string, never> */

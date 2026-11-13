@@ -95,6 +95,20 @@ CREATE TABLE failed_jobs (
 CREATE INDEX failed_jobs_connection_queue_failed_at_index
     ON failed_jobs (connection, queue, failed_at);
 
+CREATE TABLE notifications (
+    id UUID PRIMARY KEY,
+    type VARCHAR(255) NOT NULL,
+    notifiable_type VARCHAR(255) NOT NULL,
+    notifiable_id BIGINT NOT NULL,
+    data TEXT NOT NULL,
+    read_at TIMESTAMP(0) WITHOUT TIME ZONE NULL,
+    created_at TIMESTAMP(0) WITHOUT TIME ZONE NULL,
+    updated_at TIMESTAMP(0) WITHOUT TIME ZONE NULL
+);
+
+CREATE INDEX notifications_notifiable_type_notifiable_id_index
+    ON notifications (notifiable_type, notifiable_id);
+
 CREATE TABLE passkeys (
     id BIGSERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL,
@@ -132,10 +146,12 @@ CREATE TABLE clients (
     logo_path VARCHAR(255) NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'active',
     created_at TIMESTAMP(0) WITHOUT TIME ZONE NULL,
-    updated_at TIMESTAMP(0) WITHOUT TIME ZONE NULL
+    updated_at TIMESTAMP(0) WITHOUT TIME ZONE NULL,
+    deleted_at TIMESTAMP(0) WITHOUT TIME ZONE NULL
 );
 
 CREATE INDEX clients_status_index ON clients (status);
+CREATE INDEX clients_deleted_at_index ON clients (deleted_at);
 
 CREATE TABLE projects (
     id BIGSERIAL PRIMARY KEY,
@@ -149,12 +165,14 @@ CREATE TABLE projects (
     end_date DATE NULL,
     created_at TIMESTAMP(0) WITHOUT TIME ZONE NULL,
     updated_at TIMESTAMP(0) WITHOUT TIME ZONE NULL,
+    deleted_at TIMESTAMP(0) WITHOUT TIME ZONE NULL,
     CONSTRAINT projects_client_id_foreign
         FOREIGN KEY (client_id) REFERENCES clients (id) ON DELETE RESTRICT
 );
 
 CREATE INDEX projects_status_index ON projects (status);
 CREATE INDEX projects_client_id_status_index ON projects (client_id, status);
+CREATE INDEX projects_deleted_at_index ON projects (deleted_at);
 
 CREATE TABLE financial_documents (
     id BIGSERIAL PRIMARY KEY,
@@ -174,6 +192,7 @@ CREATE TABLE financial_documents (
     total NUMERIC(14, 2) NOT NULL DEFAULT 0,
     created_at TIMESTAMP(0) WITHOUT TIME ZONE NULL,
     updated_at TIMESTAMP(0) WITHOUT TIME ZONE NULL,
+    deleted_at TIMESTAMP(0) WITHOUT TIME ZONE NULL,
     CONSTRAINT financial_documents_client_id_foreign
         FOREIGN KEY (client_id) REFERENCES clients (id) ON DELETE RESTRICT,
     CONSTRAINT financial_documents_project_id_foreign
@@ -188,6 +207,7 @@ CREATE INDEX financial_documents_type_status_issue_date_index
     ON financial_documents (type, status, issue_date);
 CREATE INDEX financial_documents_client_id_created_at_index
     ON financial_documents (client_id, created_at);
+CREATE INDEX financial_documents_deleted_at_index ON financial_documents (deleted_at);
 
 CREATE TABLE financial_document_items (
     id BIGSERIAL PRIMARY KEY,
@@ -224,6 +244,34 @@ CREATE TABLE project_files (
 
 CREATE INDEX project_files_project_id_created_at_index
     ON project_files (project_id, created_at);
+
+CREATE TABLE business_model_audits (
+    id BIGSERIAL PRIMARY KEY,
+    actor_id BIGINT NULL,
+    action VARCHAR(20) NOT NULL,
+    entity_type VARCHAR(255) NOT NULL,
+    entity_id BIGINT NOT NULL,
+    old_values JSONB NULL,
+    new_values JSONB NULL,
+    created_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT business_model_audits_actor_id_foreign
+        FOREIGN KEY (actor_id) REFERENCES users (id) ON DELETE SET NULL
+);
+
+CREATE INDEX business_model_audits_entity_type_entity_id_created_at_index
+    ON business_model_audits (entity_type, entity_id, created_at);
+CREATE INDEX business_model_audits_actor_id_created_at_index
+    ON business_model_audits (actor_id, created_at);
+
+CREATE TABLE features (
+    id BIGSERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    scope VARCHAR(255) NOT NULL,
+    value TEXT NOT NULL,
+    created_at TIMESTAMP(0) WITHOUT TIME ZONE NULL,
+    updated_at TIMESTAMP(0) WITHOUT TIME ZONE NULL,
+    CONSTRAINT features_name_scope_unique UNIQUE (name, scope)
+);
 
 CREATE TABLE deletion_requests (
     id BIGSERIAL PRIMARY KEY,
@@ -273,7 +321,11 @@ INSERT INTO migrations (migration, batch) VALUES
     ('2026_10_23_205902_add_image_paths_to_users_and_clients', 4),
     ('2026_10_23_223126_add_role_to_users_table', 4),
     ('2026_10_23_223127_create_deletion_requests_table', 4),
-    ('2026_10_24_000602_add_action_and_changes_to_deletion_requests_table', 5);
+    ('2026_10_24_000602_add_action_and_changes_to_deletion_requests_table', 5),
+    ('2026_11_12_001650_create_notifications_table', 6),
+    ('2026_11_13_055907_add_soft_deletes_to_clients_projects_and_financial_documents_tables', 7),
+    ('2026_11_13_055908_create_business_model_audits_table', 7),
+    ('2026_11_13_060052_create_features_table', 7);
 
 COMMIT;
 

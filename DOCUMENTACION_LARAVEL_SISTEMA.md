@@ -13,6 +13,10 @@ El proyecto es una aplicacion Laravel con:
 
 El sistema propuesto es una plataforma de gestion empresarial con clientes, proyectos, tareas, usuarios, documentos y actividad operativa.
 
+El dashboard tambien incluye un espacio colaborativo de presencia con Ably,
+indicadores de escritura en el campo de actividad y una tarjeta meteorologica
+de Lima consumida desde Open-Meteo con cache y estado degradado ante fallos.
+
 La interfaz no usa vistas Blade para las pantallas principales. Laravel sigue controlando las rutas, validacion, sesiones, autorizacion y datos; React se encarga de presentar la interfaz a traves de Inertia.
 
 ---
@@ -942,19 +946,19 @@ resources/js/pages/clients/edit.tsx
 
 ### Responsabilidad de cada parte
 
-| Parte | Responsabilidad en nuestro sistema |
-|---|---|
-| Fortify | Login, registro, logout, contrasenas, verificacion, 2FA y passkeys |
-| `User` | Representar al usuario autenticado y sus relaciones |
-| `auth` | Impedir acceso a usuarios no autenticados |
-| `verified` | Exigir correo verificado para el area empresarial |
-| `Request` | Leer usuario, filtros, parametros, archivos y sesion |
-| `FormRequest` | Validar datos y autorizar la operacion inicial |
-| Policy | Decidir permisos sobre un cliente, proyecto o tarea concreta |
-| Controller | Coordinar la operacion sin concentrar todas las reglas |
-| Model | Representar datos y relaciones con la base de datos |
-| Inertia | Enviar props de Laravel a las paginas React |
-| React | Mostrar formularios, tablas, errores y estados de la interfaz |
+| Parte         | Responsabilidad en nuestro sistema                                 |
+| ------------- | ------------------------------------------------------------------ |
+| Fortify       | Login, registro, logout, contrasenas, verificacion, 2FA y passkeys |
+| `User`        | Representar al usuario autenticado y sus relaciones                |
+| `auth`        | Impedir acceso a usuarios no autenticados                          |
+| `verified`    | Exigir correo verificado para el area empresarial                  |
+| `Request`     | Leer usuario, filtros, parametros, archivos y sesion               |
+| `FormRequest` | Validar datos y autorizar la operacion inicial                     |
+| Policy        | Decidir permisos sobre un cliente, proyecto o tarea concreta       |
+| Controller    | Coordinar la operacion sin concentrar todas las reglas             |
+| Model         | Representar datos y relaciones con la base de datos                |
+| Inertia       | Enviar props de Laravel a las paginas React                        |
+| React         | Mostrar formularios, tablas, errores y estados de la interfaz      |
 
 ### Flujo recomendado para escribir codigo ordenado
 
@@ -968,3 +972,35 @@ resources/js/pages/clients/edit.tsx
 8. Cubrir acceso permitido y denegado con pruebas Feature.
 
 Este patron sera la base de clientes, proyectos, tareas, documentos y cualquier modulo nuevo del sistema.
+
+## 25. Eliminacion recuperable, auditoria y runtimes opcionales
+
+Clientes, proyectos y documentos financieros usan `SoftDeletes`; sus claves
+foraneas y registros relacionados se conservan. Restaurar un cliente, proyecto
+o documento recupera unicamente el registro seleccionado. No se restauran en
+cascada proyectos ni documentos relacionados; las partidas y adjuntos no se
+borran, y eliminar un proyecto no elimina sus referencias ni el contenido
+privado de sus archivos.
+
+`business_model_audits` registra actor, accion, entidad, fecha y cambios de una
+lista permitida de valores de negocio. Excluye contrasenas, credenciales,
+contactos, notas, descripciones, rutas y nombres de archivos, y contenido de
+archivos.
+
+Pennant activa por defecto las funciones globales `document-management` y
+`project-attachments`; sus rutas y elementos de interfaz respetan esos flags.
+No existe una funcion o ruta real de informes, por lo que no se agrega una
+bandera de informes.
+
+PHP-FPM continua como servicio predeterminado. Redis y RoadRunner/Octane se
+habilitan mediante los perfiles `redis` y `octane` de Docker Compose. Octane usa
+dos workers y reinicia cada worker despues de 500 solicitudes; su servicio
+opcional se publica en `127.0.0.1:8002` y no reemplaza ni reconfigura Nginx/FPM.
+Para Redis hay que elegir `predis`, configurar `REDIS_HOST=redis` y cambiar
+explicitamente los drivers de cache, cola o sesion que se quieran utilizar.
+
+Las migraciones de soft delete, auditoria y Pennant estan preparadas pero no se
+ejecutaron durante la implementacion. Para validarlas localmente, confirma que
+la configuracion de base de datos apunta a una instancia local aislada antes de
+ejecutar `php artisan migrate`; no uses Supabase ni una base desplegada para
+esta comprobacion.

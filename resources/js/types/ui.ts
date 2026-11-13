@@ -13,6 +13,20 @@ export type FlashToast = {
     message: string;
 };
 
+export type NotificationItem = {
+    id: string;
+    title: string;
+    message: string;
+    url: string;
+    createdAt: string | null;
+    readAt: string | null;
+};
+
+export type Notifications = {
+    unreadCount: number;
+    items: NotificationItem[];
+};
+
 export type AuthLayoutProps = {
     children?: ReactNode;
     name?: string;

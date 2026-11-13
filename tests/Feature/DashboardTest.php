@@ -3,6 +3,7 @@
 use App\Models\Client;
 use App\Models\Project;
 use App\Models\User;
+use Illuminate\Support\Facades\Http;
 
 test('guests are redirected to the login page', function () {
     $response = $this->get(route('dashboard'));
@@ -11,10 +12,13 @@ test('guests are redirected to the login page', function () {
 
 test('authenticated users can visit the dashboard', function () {
     $user = User::factory()->create();
+    fakeDashboardWeather();
     $this->actingAs($user);
 
     $response = $this->get(route('dashboard'));
     $response->assertOk();
+
+    Http::assertSentCount(1);
 });
 
 test('dashboard summaries and project list use saved business records', function () {
@@ -28,6 +32,7 @@ test('dashboard summaries and project list use saved business records', function
         'name' => 'Proyecto del dashboard',
         'status' => 'active',
     ]);
+    fakeDashboardWeather();
 
     $this->actingAs($user)
         ->get(route('dashboard'))
@@ -38,4 +43,6 @@ test('dashboard summaries and project list use saved business records', function
             ->where('projectStatuses.active', 1)
             ->where('projects.0.name', 'Proyecto del dashboard')
         );
+
+    Http::assertSentCount(1);
 });

@@ -211,6 +211,18 @@ class ClientController extends Controller
         return to_route('management.clientes.index');
     }
 
+    public function restore(int $cliente): RedirectResponse
+    {
+        Client::onlyTrashed()->findOrFail($cliente)->restore();
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => 'Cliente restaurado correctamente.',
+        ]);
+
+        return to_route('management.clientes.index');
+    }
+
     /**
      * @param  array{request: DeletionRequest, email_sent: bool, created: bool}  $result
      */

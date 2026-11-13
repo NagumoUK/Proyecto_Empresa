@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
  * @property int $id
@@ -23,6 +24,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 #[Hidden(['logo_path'])]
 class Client extends Model
 {
+    use SoftDeletes;
+
     protected function logoUrl(): Attribute
     {
         return Attribute::get(

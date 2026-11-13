@@ -8,6 +8,7 @@ use App\Notifications\ActivityCreatedNotification;
 use Illuminate\Notifications\SendQueuedNotifications;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Queue;
@@ -81,7 +82,7 @@ test('activity events are handled by the discovered logging listener', function 
         ]);
 });
 
-test('activity emails are queued for every verified user', function () {
+test('activity notifications are queued for every verified user', function () {
     $author = User::factory()->create();
     User::factory()->create();
     User::factory()->unverified()->create();
@@ -91,7 +92,7 @@ test('activity emails are queued for every verified user', function () {
         ->post(route('activities.store'), ['description' => 'Actividad para el equipo'])
         ->assertRedirect(route('dashboard'));
 
-    Queue::assertPushed(SendQueuedNotifications::class, 2);
+    Queue::assertPushed(SendQueuedNotifications::class, 6);
 });
 
 test('activity emails are discarded when their transaction rolls back', function () {
@@ -127,6 +128,26 @@ test('activity emails are sent only to verified users', function () {
     );
 });
 
+test('activity notifications are saved with their in-app content', function () {
+    $author = User::factory()->create(['name' => 'David Solano']);
+    $recipient = User::factory()->create();
+    $activity = CompanyActivity::query()->create([
+        'user_id' => $author->id,
+        'description' => 'Se revisó el proyecto',
+    ]);
+
+    Notification::sendNow($recipient, new ActivityCreatedNotification($activity), ['database']);
+
+    $notification = $recipient->notifications()->firstOrFail();
+
+    expect($notification->data)->toMatchArray([
+        'title' => 'Nueva actividad en el equipo',
+        'message' => 'David Solano: Se revisó el proyecto',
+        'url' => route('dashboard'),
+        'activityId' => $activity->id,
+    ]);
+});
+
 test('activity emails escape user-provided content', function () {
     $author = User::factory()->create([
         'name' => '<script>alert("name")</script>',
@@ -150,6 +171,7 @@ test('activity emails escape user-provided content', function () {
 
 test('dashboard returns the latest activity with its author', function () {
     $user = User::factory()->create(['name' => 'David Solano']);
+    fakeDashboardWeather();
     CompanyActivity::query()->create([
         'user_id' => $user->id,
         'description' => 'Se registró una actividad',
@@ -162,6 +184,8 @@ test('dashboard returns the latest activity with its author', function () {
             ->where('activities.0.userName', 'David Solano')
             ->where('activities.0.description', 'Se registró una actividad')
         );
+
+    Http::assertSentCount(1);
 });
 
 test('activity pruning deletes only records older than the selected period', function () {

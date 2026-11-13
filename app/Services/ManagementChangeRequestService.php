@@ -6,14 +6,11 @@ use App\Mail\ManagementChangeRequestMail;
 use App\Models\Client;
 use App\Models\DeletionRequest;
 use App\Models\Project;
-use App\Models\ProjectFile;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\Storage;
 use LogicException;
-use RuntimeException;
 use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
 
 class ManagementChangeRequestService
@@ -205,12 +202,7 @@ class ManagementChangeRequestService
 
             abort_unless($lockedRequest->action === 'delete', 422);
 
-            if ($target instanceof Client) {
-                $target->delete();
-            } else {
-                $target->files()->delete();
-                $target->delete();
-            }
+            $target->delete();
 
             $this->markReviewed($lockedRequest, $reviewer, 'approved');
 
@@ -243,35 +235,6 @@ class ManagementChangeRequestService
             return;
         }
 
-        if ($deletionRequest->action !== 'delete') {
-            return;
-        }
-
-        if ($deletionRequest->entity_type === 'client') {
-            $logoPath = data_get($deletionRequest->details, 'logo_path');
-
-            if (is_string($logoPath) && $logoPath !== '') {
-                $disk = Storage::disk('local');
-
-                if (! $disk->delete($logoPath) && $disk->exists($logoPath)) {
-                    throw new RuntimeException('The client logo could not be deleted from storage.');
-                }
-            }
-
-            return;
-        }
-
-        $projectFiles = data_get($deletionRequest->details, 'files', []);
-
-        foreach ($projectFiles as $file) {
-            if (is_array($file) && is_string($file['disk'] ?? null) && is_string($file['path'] ?? null)) {
-                $disk = Storage::disk($file['disk']);
-
-                if (! $disk->delete($file['path']) && $disk->exists($file['path'])) {
-                    throw new RuntimeException('A project attachment could not be deleted from storage.');
-                }
-            }
-        }
     }
 
     public function cleanRejectedChange(DeletionRequest $deletionRequest): void
@@ -459,7 +422,6 @@ class ManagementChangeRequestService
                 'company' => $target->company ?? 'No especificada',
                 'email' => $target->email ?? 'No especificado',
                 'status' => $target->status,
-                'logo_path' => $target->logo_path ?? '',
             ];
         }
 
@@ -472,14 +434,6 @@ class ManagementChangeRequestService
             'start_date' => $target->start_date?->format('d/m/Y') ?? 'No definida',
             'end_date' => $target->end_date?->format('d/m/Y') ?? 'No definida',
         ];
-        $files = $target->files()->get(['disk', 'path']);
-
-        $details['files'] = $files
-            ->map(fn (ProjectFile $file): array => [
-                'disk' => $file->disk,
-                'path' => $file->path,
-            ])
-            ->all();
 
         return $details;
     }

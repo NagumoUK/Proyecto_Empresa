@@ -69,7 +69,10 @@ export default function ProjectShow({
     project: Project;
     files: ProjectFile[];
 }) {
-    const { auth } = usePage<{ auth: Auth }>().props;
+    const { auth, features } = usePage<{
+        auth: Auth;
+        features: { projectAttachments: boolean };
+    }>().props;
     const canManage = auth.user.role !== 'viewer';
     const fileInput = useRef<HTMLInputElement>(null);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -158,150 +161,162 @@ export default function ProjectShow({
                             </div>
                         </div>
                     </section>
-                    <section className="space-y-5 rounded-xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8 dark:border-slate-800 dark:bg-slate-900">
-                        <div>
-                            <h2 className="text-lg font-semibold text-slate-950 dark:text-white">
-                                Archivos del proyecto
-                            </h2>
-                            <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                                Adjunta documentos privados de hasta 20 MB. Solo
-                                se descargan desde una sesión iniciada.
-                            </p>
-                        </div>
-                        {canManage && (
-                            <form
-                                className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-start"
-                                onSubmit={upload}
-                            >
-                                <div className="grid gap-1.5">
-                                    <input
-                                        accept={acceptedFileTypes}
-                                        aria-describedby="project-file-help project-file-error"
-                                        aria-invalid={Boolean(
-                                            uploadForm.errors.file,
-                                        )}
-                                        className="block min-h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm text-slate-700 file:mr-3 file:rounded file:border-0 file:bg-slate-100 file:px-3 file:py-1.5 file:font-medium dark:text-slate-200 dark:file:bg-slate-800"
-                                        name="file"
-                                        ref={fileInput}
-                                        onChange={(event) => {
-                                            const file =
-                                                event.currentTarget
-                                                    .files?.[0] ?? null;
-                                            setSelectedFile(file);
-                                            uploadForm.setData('file', file);
-                                            uploadForm.clearErrors('file');
-                                        }}
-                                        type="file"
-                                    />
-                                    <p
-                                        className="text-xs text-slate-500 dark:text-slate-400"
-                                        id="project-file-help"
-                                    >
-                                        PDF, Word, Excel, CSV, PNG, JPG, WebP o
-                                        TXT.
-                                    </p>
-                                    {uploadForm.errors.file && (
-                                        <p
-                                            className="text-sm text-rose-600"
-                                            id="project-file-error"
-                                            role="alert"
-                                        >
-                                            {uploadForm.errors.file}
-                                        </p>
-                                    )}
-                                </div>
-                                <Button
-                                    disabled={
-                                        !selectedFile || uploadForm.processing
-                                    }
-                                    type="submit"
+                    {features.projectAttachments && (
+                        <section className="space-y-5 rounded-xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8 dark:border-slate-800 dark:bg-slate-900">
+                            <div>
+                                <h2 className="text-lg font-semibold text-slate-950 dark:text-white">
+                                    Archivos del proyecto
+                                </h2>
+                                <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                                    Adjunta documentos privados de hasta 20 MB.
+                                    Solo se descargan desde una sesión iniciada.
+                                </p>
+                            </div>
+                            {canManage && (
+                                <form
+                                    className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-start"
+                                    onSubmit={upload}
                                 >
-                                    <Upload className="size-4" />
-                                    {uploadForm.processing
-                                        ? 'Subiendo...'
-                                        : 'Subir archivo'}
-                                </Button>
-                            </form>
-                        )}
-                        {canManage && uploadForm.progress && (
-                            <progress
-                                aria-label="Progreso de carga"
-                                className="h-2 w-full accent-sky-600"
-                                max="100"
-                                value={uploadForm.progress.percentage}
-                            />
-                        )}
-                        {files.length === 0 ? (
-                            <p className="rounded-lg border border-dashed border-slate-300 px-4 py-6 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
-                                Aún no hay archivos adjuntos.
-                            </p>
-                        ) : (
-                            <ul className="divide-y divide-slate-100 dark:divide-slate-800">
-                                {files.map((file) => (
-                                    <li
-                                        className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between"
-                                        key={file.id}
-                                    >
-                                        <div className="flex min-w-0 items-center gap-3">
-                                            <File className="size-5 shrink-0 text-slate-500" />
-                                            <div className="min-w-0">
-                                                <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">
-                                                    {file.name}
-                                                </p>
-                                                <p className="text-xs text-slate-500 dark:text-slate-400">
-                                                    {formatFileSize(file.size)}
-                                                </p>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <Button asChild variant="outline">
-                                                <a
-                                                    href={downloadProjectFile.url(
-                                                        {
-                                                            proyecto:
-                                                                project.id,
-                                                            archivo: file.id,
-                                                        },
-                                                    )}
-                                                >
-                                                    <ArrowDownToLine className="size-4" />
-                                                    Descargar
-                                                </a>
-                                            </Button>
-                                            {canManage && (
-                                                <Button
-                                                    aria-label={`Eliminar ${file.name}`}
-                                                    onClick={() => {
-                                                        if (
-                                                            window.confirm(
-                                                                `¿Eliminar "${file.name}"?`,
-                                                            )
-                                                        ) {
-                                                            router.delete(
-                                                                destroyProjectFile.url(
-                                                                    {
-                                                                        proyecto:
-                                                                            project.id,
-                                                                        archivo:
-                                                                            file.id,
-                                                                    },
-                                                                ),
-                                                            );
-                                                        }
-                                                    }}
-                                                    type="button"
-                                                    variant="ghost"
-                                                >
-                                                    <Trash2 className="size-4 text-rose-600" />
-                                                    Eliminar
-                                                </Button>
+                                    <div className="grid gap-1.5">
+                                        <input
+                                            accept={acceptedFileTypes}
+                                            aria-describedby="project-file-help project-file-error"
+                                            aria-invalid={Boolean(
+                                                uploadForm.errors.file,
                                             )}
-                                        </div>
-                                    </li>
-                                ))}
-                            </ul>
-                        )}
-                    </section>
+                                            className="block min-h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm text-slate-700 file:mr-3 file:rounded file:border-0 file:bg-slate-100 file:px-3 file:py-1.5 file:font-medium dark:text-slate-200 dark:file:bg-slate-800"
+                                            name="file"
+                                            ref={fileInput}
+                                            onChange={(event) => {
+                                                const file =
+                                                    event.currentTarget
+                                                        .files?.[0] ?? null;
+                                                setSelectedFile(file);
+                                                uploadForm.setData(
+                                                    'file',
+                                                    file,
+                                                );
+                                                uploadForm.clearErrors('file');
+                                            }}
+                                            type="file"
+                                        />
+                                        <p
+                                            className="text-xs text-slate-500 dark:text-slate-400"
+                                            id="project-file-help"
+                                        >
+                                            PDF, Word, Excel, CSV, PNG, JPG,
+                                            WebP o TXT.
+                                        </p>
+                                        {uploadForm.errors.file && (
+                                            <p
+                                                className="text-sm text-rose-600"
+                                                id="project-file-error"
+                                                role="alert"
+                                            >
+                                                {uploadForm.errors.file}
+                                            </p>
+                                        )}
+                                    </div>
+                                    <Button
+                                        disabled={
+                                            !selectedFile ||
+                                            uploadForm.processing
+                                        }
+                                        type="submit"
+                                    >
+                                        <Upload className="size-4" />
+                                        {uploadForm.processing
+                                            ? 'Subiendo...'
+                                            : 'Subir archivo'}
+                                    </Button>
+                                </form>
+                            )}
+                            {canManage && uploadForm.progress && (
+                                <progress
+                                    aria-label="Progreso de carga"
+                                    className="h-2 w-full accent-sky-600"
+                                    max="100"
+                                    value={uploadForm.progress.percentage}
+                                />
+                            )}
+                            {files.length === 0 ? (
+                                <p className="rounded-lg border border-dashed border-slate-300 px-4 py-6 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                                    Aún no hay archivos adjuntos.
+                                </p>
+                            ) : (
+                                <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+                                    {files.map((file) => (
+                                        <li
+                                            className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between"
+                                            key={file.id}
+                                        >
+                                            <div className="flex min-w-0 items-center gap-3">
+                                                <File className="size-5 shrink-0 text-slate-500" />
+                                                <div className="min-w-0">
+                                                    <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">
+                                                        {file.name}
+                                                    </p>
+                                                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                                                        {formatFileSize(
+                                                            file.size,
+                                                        )}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <Button
+                                                    asChild
+                                                    variant="outline"
+                                                >
+                                                    <a
+                                                        href={downloadProjectFile.url(
+                                                            {
+                                                                proyecto:
+                                                                    project.id,
+                                                                archivo:
+                                                                    file.id,
+                                                            },
+                                                        )}
+                                                    >
+                                                        <ArrowDownToLine className="size-4" />
+                                                        Descargar
+                                                    </a>
+                                                </Button>
+                                                {canManage && (
+                                                    <Button
+                                                        aria-label={`Eliminar ${file.name}`}
+                                                        onClick={() => {
+                                                            if (
+                                                                window.confirm(
+                                                                    `¿Eliminar "${file.name}"?`,
+                                                                )
+                                                            ) {
+                                                                router.delete(
+                                                                    destroyProjectFile.url(
+                                                                        {
+                                                                            proyecto:
+                                                                                project.id,
+                                                                            archivo:
+                                                                                file.id,
+                                                                        },
+                                                                    ),
+                                                                );
+                                                            }
+                                                        }}
+                                                        type="button"
+                                                        variant="ghost"
+                                                    >
+                                                        <Trash2 className="size-4 text-rose-600" />
+                                                        Eliminar
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </section>
+                    )}
                 </div>
             </main>
         </>

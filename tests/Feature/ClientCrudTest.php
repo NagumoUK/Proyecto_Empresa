@@ -224,7 +224,7 @@ test('clients without dependencies require an admin deletion approval', function
         ->post(route('management.solicitudes-eliminacion.aprobar', $deletionRequest))
         ->assertRedirect();
 
-    $this->assertDatabaseMissing('clients', ['id' => $client->id]);
+    $this->assertSoftDeleted('clients', ['id' => $client->id]);
     $this->assertDatabaseHas('deletion_requests', [
         'id' => $deletionRequest->id,
         'status' => 'approved',

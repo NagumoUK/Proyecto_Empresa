@@ -213,7 +213,7 @@ test('projects require admin approval before deletion', function () {
         ->post(route('management.solicitudes-eliminacion.aprobar', $deletionRequest))
         ->assertRedirect();
 
-    $this->assertDatabaseMissing('projects', ['id' => $project->id]);
+    $this->assertSoftDeleted('projects', ['id' => $project->id]);
     $this->assertDatabaseHas('deletion_requests', [
         'id' => $deletionRequest->id,
         'status' => 'approved',

@@ -1,0 +1,89 @@
+services:
+  app:
+    build:
+      target: dev
+    environment:
+      APP_ENV: local
+      APP_DEBUG: "true"
+    profiles:
+      - development
+    volumes:
+      - .:/var/www/html
+      - dev_vendor:/var/www/html/vendor
+      - dev_node_modules:/var/www/html/node_modules
+      - dev_storage:/var/www/html/storage/app
+      - dev_logs:/var/www/html/storage/logs
+
+  web:
+    ports: !override
+      - "127.0.0.1:8001:80"
+    profiles:
+      - development
+    volumes:
+      - .:/var/www/html:ro
+
+  queue:
+    build:
+      target: dev
+    environment:
+      APP_ENV: local
+      APP_DEBUG: "true"
+    profiles:
+      - development-queue
+    volumes:
+      - .:/var/www/html
+      - dev_vendor:/var/www/html/vendor
+      - dev_node_modules:/var/www/html/node_modules
+      - dev_storage:/var/www/html/storage/app
+      - dev_logs:/var/www/html/storage/logs
+
+  redis:
+    profiles:
+      - development-redis
+
+  octane:
+    build:
+      target: octane-dev
+    environment:
+      APP_ENV: local
+      APP_DEBUG: "true"
+    profiles:
+      - development-octane
+    ports: !override
+      - "127.0.0.1:8002:8000"
+    volumes:
+      - .:/var/www/html:ro
+      - dev_vendor:/var/www/html/vendor
+      - dev_storage:/var/www/html/storage/app
+      - dev_logs:/var/www/html/storage/logs
+      - dev_cache:/var/www/html/bootstrap/cache
+
+  vite:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev
+    command:
+      - pnpm
+      - dev
+      - --host
+      - 0.0.0.0
+      - --strictPort
+    depends_on:
+      app:
+        condition: service_started
+    profiles:
+      - development
+    ports:
+      - "127.0.0.1:5173:5173"
+    volumes:
+      - .:/var/www/html
+      - dev_vendor:/var/www/html/vendor
+      - dev_node_modules:/var/www/html/node_modules
+
+volumes:
+  dev_cache:
+  dev_logs:
+  dev_node_modules:
+  dev_storage:
+  dev_vendor:

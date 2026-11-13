@@ -143,6 +143,18 @@ class FinancialDocumentController extends Controller
         return to_route('management.documentos.index');
     }
 
+    public function restore(int $documento): RedirectResponse
+    {
+        FinancialDocument::onlyTrashed()->findOrFail($documento)->restore();
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => 'Documento restaurado correctamente.',
+        ]);
+
+        return to_route('management.documentos.index');
+    }
+
     public function convertToInvoice(FinancialDocument $documento): RedirectResponse
     {
         $invoice = DB::transaction(function () use ($documento): FinancialDocument {
@@ -233,8 +245,8 @@ class FinancialDocumentController extends Controller
         $attributes = [
             'client_id' => $data['client_id'],
             'project_id' => $data['project_id'] ?? null,
-            'type' => $document?->type ?? $data['type'],
-            'status' => $document?->status ?? 'draft',
+            'type' => $document === null ? $data['type'] : $document->type,
+            'status' => $document === null ? 'draft' : $document->status,
             'currency' => 'PEN',
             'issue_date' => $data['issue_date'],
             'due_date' => $data['due_date'] ?? null,

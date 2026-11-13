@@ -5,14 +5,25 @@ namespace App\Http\Controllers;
 use App\Models\Client;
 use App\Models\CompanyActivity;
 use App\Models\Project;
+use App\Services\WeatherService;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Carbon;
 use Inertia\Inertia;
 use Inertia\Response;
+use UnexpectedValueException;
 
 class DashboardController extends Controller
 {
-    public function __invoke(): Response
+    public function __invoke(WeatherService $weatherService): Response
     {
+        try {
+            $weather = $weatherService->current();
+        } catch (ConnectionException|RequestException|UnexpectedValueException $exception) {
+            report($exception);
+            $weather = null;
+        }
+
         $activities = CompanyActivity::query()
             ->with('user')
             ->latest()
@@ -62,6 +73,7 @@ class DashboardController extends Controller
 
         return Inertia::render('dashboard', [
             'activities' => $activities,
+            'weather' => $weather,
             'metrics' => [
                 'clients' => $summary['clients'],
                 'activeProjects' => $projectStatuses['active'],

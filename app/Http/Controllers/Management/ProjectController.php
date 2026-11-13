@@ -12,11 +12,13 @@ use App\Models\DeletionRequest;
 use App\Models\Project;
 use App\Services\ManagementActivityMailer;
 use App\Services\ManagementChangeRequestService;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
+use Laravel\Pennant\Feature;
 
 class ProjectController extends Controller
 {
@@ -88,20 +90,24 @@ class ProjectController extends Controller
 
     public function show(Project $proyecto): Response
     {
-        $proyecto->load([
-            'client',
-            'files' => fn ($query) => $query->latest(),
-        ]);
+        $attachmentsEnabled = Feature::globally()->active('project-attachments');
+        $proyecto->load('client');
+
+        if ($attachmentsEnabled) {
+            $proyecto->load([
+                'files' => fn (HasMany $query) => $query->latest(),
+            ]);
+        }
 
         return Inertia::render('management/projects/show', [
             'project' => $proyecto,
-            'files' => $proyecto->files->map(fn ($file): array => [
+            'files' => $attachmentsEnabled ? $proyecto->files->map(fn ($file): array => [
                 'id' => $file->id,
                 'name' => $file->original_name,
                 'mimeType' => $file->mime_type,
                 'size' => $file->size,
                 'uploadedAt' => $file->created_at?->toIso8601String(),
-            ])->all(),
+            ])->all() : [],
         ]);
     }
 
@@ -161,6 +167,18 @@ class ProjectController extends Controller
                 : ($result['email_sent']
                     ? 'Solicitud enviada al administrador para aprobar la eliminación del proyecto.'
                     : 'La solicitud quedó registrada, pero no se pudo enviar el correo al administrador.'),
+        ]);
+
+        return to_route('management.proyectos.index');
+    }
+
+    public function restore(int $proyecto): RedirectResponse
+    {
+        Project::onlyTrashed()->findOrFail($proyecto)->restore();
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => 'Proyecto restaurado correctamente.',
         ]);
 
         return to_route('management.proyectos.index');

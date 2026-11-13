@@ -6,10 +6,11 @@ services:
       target: app
     env_file:
       - .env
+    environment:
+      LOG_CHANNEL: stderr
     restart: unless-stopped
     volumes:
       - app_storage:/var/www/html/storage/app
-      - app_logs:/var/www/html/storage/logs
 
   web:
     build:
@@ -37,6 +38,8 @@ services:
       - --timeout=60
     env_file:
       - .env
+    environment:
+      LOG_CHANNEL: stderr
     depends_on:
       app:
         condition: service_started
@@ -44,8 +47,38 @@ services:
     restart: unless-stopped
     volumes:
       - app_storage:/var/www/html/storage/app
-      - app_logs:/var/www/html/storage/logs
+
+  redis:
+    image: redis:7-alpine
+    profiles:
+      - redis
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD
+        - redis-cli
+        - ping
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  octane:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: octane
+    env_file:
+      - .env
+    environment:
+      LOG_CHANNEL: stderr
+    init: true
+    ports:
+      - "127.0.0.1:8002:8000"
+    profiles:
+      - octane
+    restart: unless-stopped
+    volumes:
+      - app_storage:/var/www/html/storage/app
 
 volumes:
   app_storage:
-  app_logs:

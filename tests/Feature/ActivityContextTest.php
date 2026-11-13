@@ -2,11 +2,13 @@
 
 use App\Models\User;
 use Illuminate\Support\Facades\Context;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 
 test('web requests expose a validated request id and keep user context hidden', function () {
     $user = User::factory()->create();
     $requestId = (string) Str::uuid();
+    fakeDashboardWeather();
 
     $response = $this->actingAs($user)
         ->withHeader('X-Request-ID', $requestId)
@@ -18,6 +20,8 @@ test('web requests expose a validated request id and keep user context hidden', 
         ->and(Context::get('request_method'))->toBe('GET')
         ->and(Context::getHidden('user_id'))->toBe($user->getKey())
         ->and(Context::has('user_id'))->toBeFalse();
+
+    Http::assertSentCount(1);
 });
 
 test('malformed request ids are replaced with a generated uuid', function () {

@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Executable task breakdown for safer management data and optional runtime features.",
+  "tasks": [
+    {
+      "type": "transform",
+      "id": "001-transform-soft-delete-and-restore",
+      "description": "Make client, project, and financial-document deletion recoverable.",
+      "reason": "Allow authorized users to recover selected records while preserving related data and files.",
+      "requirements": "Add soft-delete behavior for clients, projects, and financial documents, with restore limited to the explicitly selected entity and no cascading restore. Inspect current foreign keys and preserve RESTRICT behavior for business relationships; retain only intentional child-row cascades for physical deletion. Soft deletion must not unlink project attachment files or erase stored content. Keep explicit permanent-deletion cleanup safe and consistent with existing file-reference checks. Add reversible Laravel migrations and synchronize database/database.sql for Supabase provisioning without applying migrations to any deployed or real Supabase database. Add focused feature tests for soft deletion, restoring only the selected entity, related-record restrictions, and attachment retention. Update the existing system documentation without overwriting dirty work.",
+      "dependencies": [],
+      "successCriteria": {
+        "passBuild": "true",
+        "generateNewUnitTests": "true",
+        "passUnitTests": "true"
+      }
+    },
+    {
+      "type": "transform",
+      "id": "002-transform-business-audit-trail",
+      "description": "Record privacy-safe audit history for business-model changes.",
+      "reason": "Provide traceability for important management changes without retaining sensitive data.",
+      "requirements": "Audit client, project, and financial-document changes with actor, action, entity, timestamp, and sanitized old/new values, including deletion and explicit restoration. Use an allowlist or equivalent redaction boundary; never persist secrets, passwords, file records, file contents, or sensitive payloads. Add focused unit/feature tests proving required audit fields are captured and excluded values cannot appear in stored audit records. Update relevant existing documentation.",
+      "dependencies": [
+        "001-transform-soft-delete-and-restore"
+      ],
+      "successCriteria": {
+        "passBuild": "true",
+        "generateNewUnitTests": "true",
+        "passUnitTests": "true"
+      }
+    },
+    {
+      "type": "transform",
+      "id": "003-transform-pennant-feature-flags",
+      "description": "Add default-enabled feature flags for existing management features.",
+      "reason": "Allow document management and project attachments to be disabled deliberately without changing their default availability.",
+      "requirements": "Add Laravel Pennant and define default-enabled flags for existing document-management and project-attachment functionality. Gate the corresponding existing routes and UI consistently, and test default-enabled and disabled behavior. Inspect actual routes/pages before assigning any report flag: no Reports route/module was found during planning, so do not create a Reports module or flag; document this limitation unless implementation discovers an existing report feature to gate. Confirm dependency compatibility with the project's PHP and Laravel constraints before changing Composer files. Update relevant existing documentation.",
+      "dependencies": [
+        "002-transform-business-audit-trail"
+      ],
+      "successCriteria": {
+        "passBuild": "true",
+        "generateNewUnitTests": "true",
+        "passUnitTests": "true"
+      }
+    },
+    {
+      "type": "transform",
+      "id": "004-transform-optional-docker-runtime-profiles",
+      "description": "Add opt-in Redis and Octane Docker profiles while retaining PHP-FPM by default.",
+      "reason": "Make optional runtime services available without adding requirements to the normal PHP-FPM deployment.",
+      "requirements": "Add optional Docker Compose profiles for Redis and Laravel Octane while retaining the existing PHP-FPM image/command as the default. Do not silently switch cache, session, queue, or database drivers when profiles are inactive. Before adding Octane or server dependencies, verify their compatibility with the project's PHP `^8.3` constraint, Laravel `^13.17`, current PHP 8.4 container images, and worker lifecycle requirements; do not impose an unnecessary PHP upgrade or infrastructure. Make minimal, additive changes that preserve all existing dirty/untracked changes in Dockerfile, compose.yaml, and compose.dev.yaml. Validate default and opt-in Compose configuration and document profile activation, compatibility, and fallback in the existing README/system documentation without overwriting pre-existing edits.",
+      "dependencies": [
+        "003-transform-pennant-feature-flags"
+      ],
+      "successCriteria": {
+        "passBuild": "true",
+        "generateNewUnitTests": "false",
+        "passUnitTests": "true"
+      }
+    },
+    {
+      "type": "security",
+      "id": "005-security-check-added-dependencies",
+      "description": "Check newly introduced dependencies and audit-data boundaries.",
+      "reason": "Avoid introducing known vulnerable dependencies or weakening the audit trail's privacy guarantees.",
+      "requirements": "Perform a scoped vulnerability and compatibility check for dependencies introduced by this work, especially Pennant and any optional Octane/server packages. Address only findings attributable to these additions and within the approved PHP/Laravel runtime constraints; report unrelated pre-existing findings without expanding this feature scope. Confirm tests cover exclusion of secrets, passwords, and files/file contents. Do not expose credentials or run database migrations against a deployed or real Supabase database.",
+      "dependencies": [
+        "004-transform-optional-docker-runtime-profiles"
+      ],
+      "successCriteria": {
+        "passBuild": "true",
+        "generateNewUnitTests": "false",
+        "passUnitTests": "true"
+      }
+    }
+  ],
+  "metadata": {
+    "planName": "soft-delete-audit-feature-flags-runtime",
+    "projectName": "Proyecto_React",
+    "language": "php",
+    "createdAt": "2026-11-13T00:42:26-05:00",
+    "version": "1.0"
+  }
+}

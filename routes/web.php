@@ -8,6 +8,7 @@ use App\Http\Controllers\Management\FinancialDocumentController;
 use App\Http\Controllers\Management\ProjectController;
 use App\Http\Controllers\Management\ProjectFileController;
 use App\Http\Controllers\Management\UserManagementController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\StoredImageController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -22,6 +23,10 @@ Route::get('/', function (Request $request) {
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', DashboardController::class)->name('dashboard');
+    Route::patch('notifications/{notification}/read', [NotificationController::class, 'markAsRead'])
+        ->name('notifications.read');
+    Route::patch('notifications/read-all', [NotificationController::class, 'markAllAsRead'])
+        ->name('notifications.read-all');
 
     Route::post('activities', [CompanyActivityController::class, 'store'])
         ->middleware('role:admin,manager')
@@ -34,31 +39,48 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->only(['index', 'show']);
         Route::resource('proyectos', ProjectController::class)
             ->only(['index', 'show']);
-        Route::resource('documentos', FinancialDocumentController::class)
-            ->only(['index', 'show'])
-            ->parameters(['documentos' => 'documento']);
-        Route::get('proyectos/{proyecto}/archivos/{archivo}/descargar', [ProjectFileController::class, 'download'])
-            ->name('proyectos.archivos.download');
+        Route::middleware('management-feature:document-management')->group(function (): void {
+            Route::resource('documentos', FinancialDocumentController::class)
+                ->only(['index', 'show'])
+                ->parameters(['documentos' => 'documento']);
+        });
+
+        Route::middleware('management-feature:project-attachments')->group(function (): void {
+            Route::get('proyectos/{proyecto}/archivos/{archivo}/descargar', [ProjectFileController::class, 'download'])
+                ->name('proyectos.archivos.download');
+        });
 
         Route::middleware('role:admin,manager')->group(function (): void {
             Route::resource('clientes', ClientController::class)
                 ->only(['store', 'update', 'destroy']);
             Route::resource('proyectos', ProjectController::class)
                 ->only(['store', 'update', 'destroy']);
-            Route::resource('documentos', FinancialDocumentController::class)
-                ->only(['store', 'update', 'destroy'])
-                ->parameters(['documentos' => 'documento']);
-            Route::post('documentos/{documento}/convertir-a-factura', [FinancialDocumentController::class, 'convertToInvoice'])
-                ->name('documentos.convertir-a-factura');
-            Route::patch('documentos/{documento}/estado', [FinancialDocumentController::class, 'updateStatus'])
-                ->name('documentos.estado');
-            Route::post('proyectos/{proyecto}/archivos', [ProjectFileController::class, 'store'])
-                ->name('proyectos.archivos.store');
-            Route::delete('proyectos/{proyecto}/archivos/{archivo}', [ProjectFileController::class, 'destroy'])
-                ->name('proyectos.archivos.destroy');
+            Route::middleware('management-feature:document-management')->group(function (): void {
+                Route::resource('documentos', FinancialDocumentController::class)
+                    ->only(['store', 'update', 'destroy'])
+                    ->parameters(['documentos' => 'documento']);
+                Route::post('documentos/{documento}/convertir-a-factura', [FinancialDocumentController::class, 'convertToInvoice'])
+                    ->name('documentos.convertir-a-factura');
+                Route::patch('documentos/{documento}/estado', [FinancialDocumentController::class, 'updateStatus'])
+                    ->name('documentos.estado');
+            });
+
+            Route::middleware('management-feature:project-attachments')->group(function (): void {
+                Route::post('proyectos/{proyecto}/archivos', [ProjectFileController::class, 'store'])
+                    ->name('proyectos.archivos.store');
+                Route::delete('proyectos/{proyecto}/archivos/{archivo}', [ProjectFileController::class, 'destroy'])
+                    ->name('proyectos.archivos.destroy');
+            });
         });
 
         Route::middleware('role:admin')->group(function (): void {
+            Route::patch('clientes/{cliente}/restaurar', [ClientController::class, 'restore'])
+                ->name('clientes.restore');
+            Route::patch('proyectos/{proyecto}/restaurar', [ProjectController::class, 'restore'])
+                ->name('proyectos.restore');
+            Route::patch('documentos/{documento}/restaurar', [FinancialDocumentController::class, 'restore'])
+                ->middleware('management-feature:document-management')
+                ->name('documentos.restore');
             Route::get('usuarios', [UserManagementController::class, 'index'])
                 ->name('usuarios.index');
             Route::post('usuarios', [UserManagementController::class, 'store'])

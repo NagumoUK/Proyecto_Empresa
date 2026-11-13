@@ -42,4 +42,12 @@ return [
         'timeout' => (int) env('EXTERNAL_API_TIMEOUT', 10),
     ],
 
+    'weather' => [
+        'endpoint' => env('WEATHER_API_ENDPOINT', 'https://api.open-meteo.com/v1/forecast'),
+        'location' => env('WEATHER_LOCATION', 'Lima, Perú'),
+        'latitude' => (float) env('WEATHER_LATITUDE', -12.0464),
+        'longitude' => (float) env('WEATHER_LONGITUDE', -77.0428),
+        'timezone' => env('WEATHER_TIMEZONE', 'America/Lima'),
+    ],
+
 ];

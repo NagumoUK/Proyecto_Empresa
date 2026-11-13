@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 /*
@@ -47,4 +48,21 @@ expect()->extend('toBeOne', function () {
 function something()
 {
     // ..
+}
+
+function fakeDashboardWeather(): void
+{
+    Http::preventStrayRequests();
+    Http::fake([
+        config('services.weather.endpoint').'*' => Http::response([
+            'current' => [
+                'temperature_2m' => 22.4,
+                'apparent_temperature' => 23.1,
+                'relative_humidity_2m' => 75,
+                'weather_code' => 2,
+                'wind_speed_10m' => 12.5,
+                'time' => '2025-01-15T12:00',
+            ],
+        ]),
+    ]);
 }

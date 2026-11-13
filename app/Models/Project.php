@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 
 /**
@@ -23,6 +24,8 @@ use Illuminate\Support\Carbon;
 #[Fillable(['client_id', 'name', 'description', 'status', 'budget', 'start_date', 'end_date'])]
 class Project extends Model
 {
+    use SoftDeletes;
+
     public const STATUSES = ['planning', 'active', 'on_hold', 'completed', 'cancelled'];
 
     /** @return BelongsTo<Client, $this> */

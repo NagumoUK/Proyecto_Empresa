@@ -1,4 +1,5 @@
 import type { Auth } from '@/types/auth';
+import type { Notifications } from '@/types/ui';
 import type Echo from '@ably/laravel-echo';
 import type * as Ably from 'ably';
 
@@ -20,6 +21,7 @@ declare module '@inertiajs/core' {
         sharedPageProps: {
             name: string;
             auth: Auth;
+            notifications: Notifications;
             sidebarOpen: boolean;
             locale: string;
             [key: string]: unknown;

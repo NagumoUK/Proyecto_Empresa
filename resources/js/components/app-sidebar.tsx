@@ -31,7 +31,10 @@ import { index as deletionRequestsIndex } from '@/routes/management/solicitudes-
 import type { NavItem } from '@/types';
 import type { Auth } from '@/types/auth';
 
-type PageProps = { auth: Auth };
+type PageProps = {
+    auth: Auth;
+    features: { documentManagement: boolean };
+};
 
 const mainNavItems: NavItem[] = [
     {
@@ -70,11 +73,15 @@ const footerNavItems: NavItem[] = [
 ];
 
 export function AppSidebar() {
-    const { auth } = usePage<PageProps>().props;
-    const items =
-        auth.user.role === 'admin'
+    const { auth, features } = usePage<PageProps>().props;
+    const items = [
+        ...mainNavItems.filter(
+            (item) =>
+                item.title !== 'Cotizaciones y facturas' ||
+                features.documentManagement,
+        ),
+        ...(auth.user.role === 'admin'
             ? [
-                  ...mainNavItems,
                   {
                       title: 'Usuarios y roles',
                       href: usersIndex(),
@@ -86,7 +93,8 @@ export function AppSidebar() {
                       icon: ClipboardCheck,
                   },
               ]
-            : mainNavItems;
+            : []),
+    ];
 
     return (
         <Sidebar collapsible="icon" variant="inset">
