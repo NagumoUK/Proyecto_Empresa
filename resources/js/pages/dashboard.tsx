@@ -18,8 +18,14 @@ import {
 } from 'lucide-react';
 import { useEffect, useState, type FormEvent } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ActivityHeatmap } from '@/components/dashboard/activity-heatmap';
 import { useWorkspacePresence } from '@/hooks/use-workspace-presence';
 import { dashboard } from '@/routes';
+
+type ActivityDay = {
+    date: string;
+    count: number;
+};
 
 type ActivityItem = {
     id: number;
@@ -43,6 +49,7 @@ type WeatherItem = {
 };
 
 type DashboardProps = {
+    activitySeries: ActivityDay[];
     activities: ActivityItem[];
     metrics: {
         clients: number;
@@ -109,6 +116,7 @@ function weatherDescription(code: number): {
 }
 
 export default function Dashboard({
+    activitySeries,
     activities: initialActivities,
     metrics,
     projectStatuses,
@@ -319,6 +327,8 @@ export default function Dashboard({
                             );
                         })}
                     </div>
+
+                    <ActivityHeatmap activitySeries={activitySeries} />
 
                     <div className="grid gap-6 lg:grid-cols-2">
                         <Card className="border-slate-200/80 py-0 shadow-sm dark:border-slate-800">
