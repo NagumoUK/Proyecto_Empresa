@@ -217,33 +217,27 @@ usarlos con Redis. Octane expone `127.0.0.1:8002`; el servicio Nginx/PHP-FPM
 predeterminado en el puerto `8000` no se reemplaza ni se redirige
 automáticamente.
 
-### Asistente de IA local con Ollama en Docker
+### Asistente de IA con Gemini en Docker
 
-Compose incluye Ollama en una red interna, descarga el modelo configurado en
-`OLLAMA_MODEL` la primera vez y conserva sus archivos en el volumen
-`ollama_data`. El puerto de Ollama no se publica en el host. La aplicación y
-el worker se conectan por el nombre interno `ollama`, sin requerir una clave
-de OpenAI:
+El asistente usa `gemini-3.5-flash-lite` mediante la API de Gemini. Crea una
+clave en [Google AI Studio](https://aistudio.google.com/apikey) y guárdala
+únicamente en `GEMINI_API_KEY` dentro del `.env` del servidor; no uses una
+variable `VITE_` ni la compartas.
 
-```bash
-docker compose up -d --build
-docker compose logs -f ollama-init
-```
+El nivel gratuito tiene cuota limitada y Google puede usar las solicitudes y
+respuestas para mejorar sus servicios. **No lo uses con datos reales de
+clientes/proyectos, datos personales ni información confidencial.** Para
+probarlo, conecta una base de datos de pruebas con registros ficticios o
+anonimizados. Consulta los
+[términos de Gemini](https://ai.google.dev/gemini-api/docs/terms) y los
+[límites/precios](https://ai.google.dev/gemini-api/docs/pricing) antes de usarlo.
 
-La primera descarga ocupa varios GB y la inferencia usa memoria y CPU del
-servidor; comprueba que la máquina tenga recursos suficientes. Para cambiar el
-modelo, define `OLLAMA_MODEL` en el `.env` del servidor y vuelve a crear el
-servicio `ollama-init` junto con los procesos de la aplicación:
-
-```bash
-docker compose up -d --force-recreate ollama-init app queue
-```
-
-No publiques el puerto `11434` a Internet. Para revisar el estado:
+Después de guardar la clave y elegir el modelo con `GEMINI_MODEL`, reconstruye
+los servicios:
 
 ```bash
-docker compose ps
-docker compose logs app ollama
+docker compose up -d --build --remove-orphans app queue web
+docker compose logs -f app
 ```
 
 ### Desplegar en DigitalOcean con Docker y Nginx
@@ -267,11 +261,14 @@ PostgreSQL de DigitalOcean; no se incluye una base de datos local en Compose.
 
     Usa `APP_ENV=production`, `APP_DEBUG=false` y la URL pública en `APP_URL`.
     Completa las credenciales de PostgreSQL, `ABLY_KEY` con una clave Root,
-    SMTP y las demás variables necesarias. `OLLAMA_URL` se configura dentro de
-    Compose; `OLLAMA_MODEL` puede conservar `qwen3.5:4b` o apuntar a otro modelo
-    compatible con herramientas. Si usas Managed PostgreSQL, agrega el Droplet
-    a sus trusted sources y configura `DB_SSLMODE=require`. No subas `.env` al
-    repositorio.
+    SMTP y las demás variables necesarias. Si usas Managed PostgreSQL, agrega
+    el Droplet a sus trusted sources y configura `DB_SSLMODE=require`. No subas
+    `.env` al repositorio.
+
+    El asistente usa Gemini. No configures `GEMINI_API_KEY` en producción si la
+    aplicación va a consultar datos reales o confidenciales: el nivel gratuito
+    no es adecuado para esos datos. Úsalo solo con una base de pruebas
+    ficticia/anonimizada, o deja la función de IA sin configurar.
 
 4. Genera una clave de aplicación sin guardarla en la imagen y cópiala al
    `APP_KEY` del `.env` del servidor:
@@ -285,9 +282,9 @@ PostgreSQL de DigitalOcean; no se incluye una base de datos local en Compose.
    se ejecuta como servicio separado.
 
     ```bash
-    docker compose up -d --build
-    docker compose exec app php artisan migrate --force
-    docker compose exec app php artisan optimize
+    docker compose up -d --build --remove-orphans app queue web
+    docker compose exec -T app php artisan migrate --force
+    docker compose exec -T app php artisan optimize
     docker compose restart app queue
     docker compose ps
     ```
@@ -301,13 +298,15 @@ PostgreSQL de DigitalOcean; no se incluye una base de datos local en Compose.
    Let's Encrypt y actualiza Nginx para servir TLS y redirigir HTTP a HTTPS. La
    configuración incluida escucha en HTTP (`80`) y no crea certificados TLS.
 
-Para desplegar cambios posteriormente, actualiza el repositorio y repite la
-construcción, migración, optimización y reinicio:
+`docker compose restart app queue` reinicia los procesos, pero no reconstruye
+la imagen ni incorpora cambios de código o dependencias. Para desplegar cambios
+posteriormente, actualiza el repositorio y ejecuta:
 
 ```bash
 git pull
-docker compose up -d --build
-docker compose exec app php artisan migrate --force
-docker compose exec app php artisan optimize
+docker compose up -d --build --remove-orphans app queue web
+docker compose exec -T app php artisan migrate --force
+docker compose exec -T app php artisan optimize
 docker compose restart app queue
+docker compose ps
 ```

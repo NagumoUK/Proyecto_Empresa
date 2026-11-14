@@ -199,10 +199,11 @@ export default function AssistantPage() {
                                     id="assistant-privacy"
                                     className="max-w-2xl text-xs text-muted-foreground"
                                 >
-                                    Las preguntas se envían a OpenAI. El
-                                    asistente solo consulta nombres, empresas,
-                                    estados y fechas; no tiene acceso a datos de
-                                    contacto, presupuestos ni descripciones.
+                                    Gemini gratuito es solo para pruebas con
+                                    datos ficticios o anonimizados: Google puede
+                                    usar las solicitudes para mejorar sus
+                                    servicios. No incluyas datos reales,
+                                    personales ni confidenciales.
                                 </p>
                                 <Button
                                     type="submit"

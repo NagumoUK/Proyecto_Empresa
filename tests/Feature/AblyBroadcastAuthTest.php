@@ -33,6 +33,11 @@ it('issues a subscribe-only token for authenticated users', function () {
     expect($capabilities['private:activities'] ?? null)->toBe(['subscribe']);
 });
 
+it('renders a CSRF token for Echo authorization requests', function () {
+    $this->get('/login')
+        ->assertSee('<meta name="csrf-token" content="', false);
+});
+
 it('returns 403 when a guest requests a token for the private activity channel', function () {
     $this->postJson('/broadcasting/auth', [
         'channel_name' => 'private:activities',

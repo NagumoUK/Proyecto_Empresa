@@ -14,7 +14,7 @@ use Laravel\Ai\Enums\Lab;
 use Laravel\Ai\Promptable;
 use Stringable;
 
-#[Provider(Lab::Ollama)]
+#[Provider(Lab::Gemini)]
 class BusinessDataAssistant implements Agent, Conversational, HasTools
 {
     use Promptable, RemembersConversations;

@@ -104,6 +104,11 @@ return [
             'driver' => 'gemini',
             'key' => env('GEMINI_API_KEY'),
             'url' => env('GEMINI_URL', 'https://generativelanguage.googleapis.com/v1beta/'),
+            'models' => [
+                'text' => [
+                    'default' => env('GEMINI_MODEL', 'gemini-3.5-flash-lite'),
+                ],
+            ],
         ],
 
         'groq' => [
@@ -119,17 +124,6 @@ return [
         'mistral' => [
             'driver' => 'mistral',
             'key' => env('MISTRAL_API_KEY'),
-        ],
-
-        'ollama' => [
-            'driver' => 'ollama',
-            'key' => env('OLLAMA_API_KEY', ''),
-            'url' => env('OLLAMA_URL', 'http://localhost:11434'),
-            'models' => [
-                'text' => [
-                    'default' => env('OLLAMA_MODEL', 'qwen3.5:4b'),
-                ],
-            ],
         ],
 
         'openai' => [

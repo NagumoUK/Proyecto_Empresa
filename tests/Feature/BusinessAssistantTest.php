@@ -25,7 +25,6 @@ test('verified users can open the business assistant', function () {
 test('users can ask questions without an OpenAI key and continue their own stored conversation', function () {
     config([
         'ai.providers.openai.key' => null,
-        'ai.providers.ollama.key' => '',
     ]);
 
     BusinessDataAssistant::fake(['Hay tres clientes activos.']);
